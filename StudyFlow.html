@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyFlow - Accessible Flashcards Study App</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1, h2, h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .nav-tabs {
+            display: flex;
+            border-bottom: 2px solid #dee2e6;
+            margin-bottom: 30px;
+        }
+
+        .nav-tab {
+            background: none;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover, .nav-tab:focus {
+            background: #f8f9fa;
+            outline: 2px solid #3498db;
+            outline-offset: -2px;
+        }
+
+        .nav-tab.active {
+            border-bottom-color: #3498db;
+            color: #3498db;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        input, textarea, select, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        input:focus, textarea:focus, select:focus, button:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: 2px solid #3498db;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #2980b9;
+            border-color: #2980b9;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .keyboard-help {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .keyboard-help h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .keyboard-help ul {
+            margin-left: 20px;
+        }
+
+        .keyboard-help li {
+            margin-bottom: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .deck-card {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+        }
+
+        .deck-card:hover {
+            border-color: #3498db;
+            background: #e3f2fd;
+        }
+
+        .deck-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .deck-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .flashcard {
+            background: #fff;
+            border: 3px solid #3498db;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 20px 0;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: relative;
+        }
+
+        .flashcard-content {
+            font-size: 18px;
+            line-height: 1.5;
+        }
+
+        .progress {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #2c3e50;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>StudyFlow</h1>
+            <p>Intelligent, accessible flashcards with spaced repetition - making studying seamless and engaging for everyone.</p>
+        </header>
+
+        <div class="keyboard-help">
+            <h3>Keyboard Navigation</h3>
+            <ul>
+                <li><strong>Tab/Shift+Tab:</strong> Navigate between elements</li>
+                <li><strong>Space/Enter:</strong> Activate buttons and flip cards</li>
+                <li><strong>Arrow Keys:</strong> Navigate between cards during study (Left/Right)</li>
+                <li><strong>1, 2, 3:</strong> Quick confidence rating or multiple choice selection</li>
+                <li><strong>R:</strong> Restart current study session</li>
+                <li><strong>Escape:</strong> Return to deck selection</li>
+            </ul>
+        </div>
+
+        <div aria-live="polite" aria-atomic="true" class="sr-only" id="announcements"></div>
+
+        <nav class="nav-tabs" role="tablist">
+            <button class="nav-tab active" role="tab" data-tab="decks" aria-selected="true">My Decks</button>
+            <button class="nav-tab" role="tab" data-tab="create">Create Deck</button>
+            <button class="nav-tab" role="tab" data-tab="study">Study Mode</button>
+        </nav>
+
+        <main>
+            <!-- Decks Tab -->
+            <section class="tab-content active" id="decks-tab" role="tabpanel">
+                <h2>Your Study Decks</h2>
+                <div id="decks-list">
+                    <div class="empty-state">
+                        <h3>Welcome to StudyFlow!</h3>
+                        <p>Create your first deck to get started studying.</p>
+                        <button type="button" onclick="switchTab('create')">Create Your First Deck</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Create Deck Tab -->
+            <section class="tab-content" id="create-tab" role="tabpanel">
+                <h2>Create New Deck</h2>
+                
+                <div class="section">
+                    <label for="deck-name">Deck Name:</label>
+                    <input type="text" id="deck-name" placeholder="e.g., Biology Chapter 5">
+                    
+                    <label for="deck-category">Category:</label>
+                    <select id="deck-category">
+                        <option value="Biology">Biology</option>
+                        <option value="Chemistry">Chemistry</option>
+                        <option value="Physics">Physics</option>
+                        <option value="Math">Math</option>
+                        <option value="History">History</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="section">
+                    <h3>Create Cards</h3>
+                    <div class="button-group">
+                        <button id="auto-method-btn" type="button">Auto-Generate from Notes</button>
+                        <button id="manual-method-btn" type="button">Create Manually</button>
+                    </div>
+                </div>
+
+                <div id="auto-input" class="section hidden">
+                    <label for="notes-input">Paste your study notes here:</label>
+                    <textarea id="notes-input" rows="10" placeholder="Example:
+What is photosynthesis?
+Photosynthesis is the process by which plants convert light energy into chemical energy.
+
+Definition: Mitochondria
+Mitochondria are the powerhouses of the cell."></textarea>
+                    <button id="generate-btn" type="button">Generate Cards from Notes</button>
+                </div>
+
+                <div id="manual-input" class="section hidden">
+                    <label for="card-front">Front of card (question or term):</label>
+                    <textarea id="card-front" rows="3" placeholder="Example: What is mitosis?"></textarea>
+                    
+                    <label for="card-back">Back of card (answer or definition):</label>
+                    <textarea id="card-back" rows="4" placeholder="Example: Mitosis is the process of cell division."></textarea>
+                    
+                    <button id="add-card-btn" type="button">Add This Card</button>
+                </div>
+
+                <div id="cards-preview" class="section hidden">
+                    <h3>Cards Preview</h3>
+                    <div id="preview-cards"></div>
+                    <div class="button-group">
+                        <button id="save-deck-btn" type="button">Save Deck</button>
+                        <button id="cancel-deck-btn" type="button">Cancel</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Study Mode Tab -->
+            <section class="tab-content" id="study-tab" role="tabpanel">
+                <div id="no-study-content">
+                    <div class="empty-state">
+                        <h3>No Active Study Session</h3>
+                        <p>Select a deck from "My Decks" to start studying.</p>
+                    </div>
+                </div>
+
+                <div id="study-mode-content" class="hidden">
+                    <h2>Study Mode</h2>
+                    <div class="progress" id="study-progress" aria-live="polite"></div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                    
+                    <div class="flashcard" id="flashcard" tabindex="0" role="button" aria-label="Flashcard - press Space or Enter to flip">
+                        <div class="flashcard-content" id="card-content">Click a deck to start studying!</div>
+                    </div>
+
+                    <div class="button-group">
+                        <button id="prev-btn" type="button">Previous Card</button>
+                        <button id="flip-btn" type="button">Flip Card</button>
+                        <button id="next-btn" type="button">Next Card</button>
+                    </div>
+
+                    <div class="button-group">
+                        <button id="end-study-btn" type="button">End Study Session</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Simple StudyFlow App
+        class StudyFlowApp {
+            constructor() {
+                this.decks = this.loadDecks();
+                this.currentDeck = null;
+                this.currentCardIndex = 0;
+                this.showingFront = true;
+                this.tempCards = [];
+                this.creationMode = null;
+                this.initializeElements();
+                this.setupEventListeners();
+                this.renderDecks();
+            }
+
+            initializeElements() {
+                // Navigation
+                this.navTabs = document.querySelectorAll('.nav-tab');
+                this.tabContents = document.querySelectorAll('.tab-content');
+                
+                // Create deck elements
+                this.deckName = document.getElementById('deck-name');
+                this.deckCategory = document.getElementById('deck-category');
+                this.autoMethodBtn = document.getElementById('auto-method-btn');
+                this.manualMethodBtn = document.getElementById('manual-method-btn');
+                this.autoInput = document.getElementById('auto-input');
+                this.manualInput = document.getElementById('manual-input');
+                this.notesInput = document.getElementById('notes-input');
+                this.generateBtn = document.getElementById('generate-btn');
+                this.cardFront = document.getElementById('card-front');
+                this.cardBack = document.getElementById('card-back');
+                this.addCardBtn = document.getElementById('add-card-btn');
+                this.cardsPreview = document.getElementById('cards-preview');
+                this.previewCards = document.getElementById('preview-cards');
+                this.saveDeckBtn = document.getElementById('save-deck-btn');
+                this.cancelDeckBtn = document.getElementById('cancel-deck-btn');
+                
+                // Study elements
+                this.studyModeContent = document.getElementById('study-mode-content');
+                this.noStudyContent = document.getElementById('no-study-content');
+                this.studyProgress = document.getElementById('study-progress');
+                this.progressFill = document.getElementById('progress-fill');
+                this.flashcard = document.getElementById('flashcard');
+                this.cardContent = document.getElementById('card-content');
+                this.prevBtn = document.getElementById('prev-btn');
+                this.flipBtn = document.getElementById('flip-btn');
+                this.nextBtn = document.getElementById('next-btn');
+                this.endStudyBtn = document.getElementById('end-study-btn');
+                
+                // Other elements
+                this.decksList = document.getElementById('decks-list');
+                this.announcements = document.getElementById('announcements');
+            }
+
+            setupEventListeners() {
+                // Navigation
+                this.navTabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const tabName = tab.dataset.tab;
+                        this.switchTab(tabName);
+                    });
+                });
+
+                // Create deck
+                this.autoMethodBtn.addEventListener('click', () => this.setCreationMode('auto'));
+                this.manualMethodBtn.addEventListener('click', () => this.setCreationMode('manual'));
+                this.generateBtn.addEventListener('click', () => this.generateCards());
+                this.addCardBtn.addEventListener('click', () => this.addManualCard());
+                this.saveDeckBtn.addEventListener('click', () => this.saveDeck());
+                this.cancelDeckBtn.addEventListener('click', () => this.cancelDeck());
+
+                // Study mode
+                this.flipBtn.addEventListener('click', () => this.flipCard());
+                this.flashcard.addEventListener('click', () => this.flipCard());
+                this.flashcard.addEventListener('keydown', (e) => {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                        e.preventDefault();
+                        this.flipCard();
+                    }
+                });
+                this.prevBtn.addEventListener('click', () => this.previousCard());
+                this.nextBtn.addEventListener('click', () => this.nextCard());
+                this.endStudyBtn.addEventListener('click', () => this.endStudy());
+
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (this.currentDeck) {
+                        switch(e.key) {
+                            case 'ArrowLeft':
+                                e.preventDefault();
+                                this.previousCard();
+                                break;
+                            case 'ArrowRight':
+                                e.preventDefault();
+                                this.nextCard();
+                                break;
+                            case 'Escape':
+                                e.preventDefault();
+                                this.endStudy();
+                                break;
+                        }
+                    }
+                });
+            }
+
+            announce(message) {
+                this.announcements.textContent = message;
+                setTimeout(() => {
+                    this.announcements.textContent = '';
+                }, 1000);
+            }
+
+            switchTab(tabName) {
+                // Update nav tabs
+                this.navTabs.forEach(tab => {
+                    tab.classList.remove('active');
+                    tab.setAttribute('aria-selected', 'false');
+                });
+                document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+                document.querySelector(`[data-tab="${tabName}"]`).setAttribute('aria-selected', 'true');
+
+                // Update tab content
+                this.tabContents.forEach(content => content.classList.remove('active'));
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+
+                this.announce(`Switched to ${tabName} tab`);
+            }
+
+            loadDecks() {
+                try {
+                    const saved = localStorage.getItem('studyflow-decks');
+                    return saved ? JSON.parse(saved) : [];
+                } catch (error) {
+                    console.warn('Could not load decks:', error);
+                    return [];
+                }
+            }
+
+            saveDecks() {
+                try {
+                    localStorage.setItem('studyflow-decks', JSON.stringify(this.decks));
+                    return true;
+                } catch (error) {
+                    console.warn('Could not save decks:', error);
+                    return false;
+                }
+            }
+
+            renderDecks() {
+                if (this.decks.length === 0) {
+                    this.decksList.innerHTML = `
+                        <div class="empty-state">
+                            <h3>Welcome to StudyFlow!</h3>
+                            <p>Create your first deck to get started studying.</p>
+                            <button type="button" onclick="app.switchTab('create')">Create Your First Deck</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                this.decksList.innerHTML = '';
+                
+                this.decks.forEach((deck, index) => {
+                    const deckElement = document.createElement('div');
+                    deckElement.className = 'deck-card';
+                    deckElement.innerHTML = `
+                        <div class="deck-header">
+                            <h3 class="deck-title">${deck.name}</h3>
+                        </div>
+                        <p>${deck.cards.length} cards • ${deck.category}</p>
+                        <div class="button-group" style="margin-top: 15px;">
+                            <button type="button" onclick="app.startStudy(${index})">Study This Deck</button>
+                            <button type="button" onclick="app.deleteDeck(${index})">Delete</button>
+                        </div>
+                    `;
+                    this.decksList.appendChild(deckElement);
+                });
+            }
+
+            setCreationMode(mode) {
+                this.creationMode = mode;
+                this.autoInput.classList.toggle('hidden', mode !== 'auto');
+                this.manualInput.classList.toggle('hidden', mode !== 'manual');
+                
+                if (mode === 'auto') {
+                    this.notesInput.focus();
+                    this.announce('Auto-generate mode selected. Paste your notes.');
+                } else {
+                    this.cardFront.focus();
+                    this.announce('Manual mode selected. Create cards one at a time.');
+                }
+            }
+
+            generateCards() {
+                const notes = this.notesInput.value.trim();
+                if (!notes) {
+                    this.announce('Please paste your study notes first.');
+                    this.notesInput.focus();
+                    return;
+                }
+
+                this.tempCards = this.parseNotes(notes);
+                
+                if (this.tempCards.length === 0) {
+                    this.announce('No flashcards could be generated. Please check your notes format.');
+                    return;
+                }
+
+                this.showPreview();
+                this.announce(`Successfully generated ${this.tempCards.length} flashcards.`);
+            }
+
+            parseNotes(notes) {
+                const cards = [];
+                const lines = notes.split('\n').map(line => line.trim()).filter(line => line);
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    
+                    // Pattern: Questions followed by answers
+                    if (line.includes('?') && i + 1 < lines.length) {
+                        const question = line;
+                        const answer = lines[i + 1];
+                        if (!answer.includes('?')) {
+                            cards.push({ front: question, back: answer });
+                            i++; // Skip the answer line
+                        }
+                    }
+                    
+                    // Pattern: Definition: Term
+                    else if (line.toLowerCase().startsWith('definition:')) {
+                        const term = line.substring(11).trim();
+                        if (i + 1 < lines.length) {
+                            const definition = lines[i + 1];
+                            cards.push({ front: `What is ${term}?`, back: definition });
+                            i++; // Skip the definition line
+                        }
+                    }
+                    
+                    // Pattern: Term: Definition
+                    else if (line.includes(':') && !line.includes('?')) {
+                        const parts = line.split(':');
+                        if (parts.length >= 2) {
+                            const term = parts[0].trim();
+                            const definition = parts.slice(1).join(':').trim();
+                            if (definition.length > 10) {
+                                cards.push({ front: `What is ${term}?`, back: definition });
+                            }
+                        }
+                    }
+                }
+                
+                return cards;
+            }
+
+            addManualCard() {
+                const front = this.cardFront.value.trim();
+                const back = this.cardBack.value.trim();
+                
+                if (!front || !back) {
+                    this.announce('Please fill in both the front and back of the card.');
+                    if (!front) this.cardFront.focus();
+                    else this.cardBack.focus();
+                    return;
+                }
+
+                this.tempCards.push({ front, back });
+                
+                // Clear the form
+                this.cardFront.value = '';
+                this.cardBack.value = '';
+                
+                this.showPreview();
+                this.announce(`Card added. You now have ${this.tempCards.length} cards.`);
+                this.cardFront.focus();
+            }
+
+            showPreview() {
+                this.previewCards.innerHTML = '';
+                this.tempCards.forEach((card, index) => {
+                    const cardElement = document.createElement('div');
+                    cardElement.className = 'deck-card';
+                    cardElement.innerHTML = `
+                        <div class="deck-header">
+                            <span>Card ${index + 1}</span>
+                            <button type="button" onclick="app.removeCard(${index})">Remove</button>
+                        </div>
+                        <p><strong>Front:</strong> ${card.front}</p>
+                        <p><strong>Back:</strong> ${card.back}</p>
+                    `;
+                    this.previewCards.appendChild(cardElement);
+                });
+                
+                this.cardsPreview.classList.remove('hidden');
+            }
+
+            removeCard(index) {
+                this.tempCards.splice(index, 1);
+                if (this.tempCards.length === 0) {
+                    this.cardsPreview.classList.add('hidden');
+                } else {
+                    this.showPreview();
+                }
+                this.announce(`Card removed. ${this.tempCards.length} cards remaining.`);
+            }
+
+            saveDeck() {
+                const name = this.deckName.value.trim();
+                const category = this.deckCategory.value;
+                
+                if (!name) {
+                    this.announce('Please enter a deck name.');
+                    this.deckName.focus();
+                    return;
+                }
+                
+                if (this.tempCards.length === 0) {
+                    this.announce('Please create at least one card before saving.');
+                    return;
+                }
+                
+                const deck = {
+                    name,
+                    category,
+                    cards: this.tempCards,
+                    created: new Date().toISOString()
+                };
+                
+                this.decks.push(deck);
+                if (this.saveDecks()) {
+                    this.announce(`Deck "${name}" saved successfully with ${this.tempCards.length} cards.`);
+                    this.resetCreateForm();
+                    this.switchTab('decks');
+                } else {
+                    this.announce('Error saving deck. Please try again.');
+                }
+            }
+
+            cancelDeck() {
+                if (this.tempCards.length > 0) {
+                    if (confirm('Are you sure you want to cancel? All unsaved cards will be lost.')) {
+                        this.resetCreateForm();
+                        this.switchTab('decks');
+                    }
+                } else {
+                    this.switchTab('decks');
+                }
+            }
+
+            resetCreateForm() {
+                this.deckName.value = '';
+                this.deckCategory.value = 'Biology';
+                this.notesInput.value = '';
+                this.cardFront.value = '';
+                this.cardBack.value = '';
+                this.tempCards = [];
+                this.creationMode = null;
+                this.autoInput.classList.add('hidden');
+                this.manualInput.classList.add('hidden');
+                this.cardsPreview.classList.add('hidden');
+            }
+
+            deleteDeck(index) {
+                const deck = this.decks[index];
+                if (confirm(`Are you sure you want to delete "${deck.name}"?`)) {
+                    this.decks.splice(index, 1);
+                    this.saveDecks();
+                    this.renderDecks();
+                    this.announce(`Deck "${deck.name}" deleted.`);
+                }
+            }
+
+            startStudy(deckIndex) {
+                this.currentDeck = this.decks[deckIndex];
+                this.currentCardIndex = 0;
+                this.showingFront = true;
+                
+                this.switchTab('study');
+                this.studyModeContent.classList.remove('hidden');
+                this.noStudyContent.classList.add('hidden');
+                
+                this.displayCurrentCard();
+                this.announce(`Started studying "${this.currentDeck.name}" with ${this.currentDeck.cards.length} cards.`);
+                this.flashcard.focus();
+            }
+
+            displayCurrentCard() {
+                if (!this.currentDeck || !this.currentDeck.cards.length) return;
+                
+                const card = this.currentDeck.cards[this.currentCardIndex];
+                const progress = Math.round(((this.currentCardIndex + 1) / this.currentDeck.cards.length) * 100);
+                
+                this.studyProgress.textContent = `Card ${this.currentCardIndex + 1} of ${this.currentDeck.cards.length}`;
+                this.progressFill.style.width = `${progress}%`;
+                
+                const content = this.showingFront ? card.front : card.back;
+                const side = this.showingFront ? 'front' : 'back';
+                
+                this.cardContent.textContent = content;
+                this.flashcard.setAttribute('aria-label', 
+                    `Card ${this.currentCardIndex + 1} of ${this.currentDeck.cards.length}, showing ${side}. ${content}. Press Space or Enter to flip.`
+                );
+                
+                // Update navigation buttons
+                this.prevBtn.disabled = this.currentCardIndex === 0;
+                this.nextBtn.disabled = this.currentCardIndex === this.currentDeck.cards.length - 1;
+            }
+
+            flipCard() {
+                if (!this.currentDeck) return;
+                
+                this.showingFront = !this.showingFront;
+                this.displayCurrentCard();
+                
+                const side = this.showingFront ? 'front' : 'back';
+                const content = this.currentDeck.cards[this.currentCardIndex][this.showingFront ? 'front' : 'back'];
+                this.announce(`Flipped to ${side}: ${content}`);
+            }
+
+            previousCard() {
+                if (this.currentCardIndex > 0) {
+                    this.currentCardIndex--;
+                    this.showingFront = true;
+                    this.displayCurrentCard();
+                    this.announce(`Previous card: ${this.currentDeck.cards[this.currentCardIndex].front}`);
+                }
+            }
+
+            nextCard() {
+                if (this.currentCardIndex < this.currentDeck.cards.length - 1) {
+                    this.currentCardIndex++;
+                    this.showingFront = true;
+                    this.displayCurrentCard();
+                    this.announce(`Next card: ${this.currentDeck.cards[this.currentCardIndex].front}`);
+                } else {
+                    this.announce('You have reached the end of the flashcards. Great job!');
+                }
+            }
+
+            endStudy() {
+                this.currentDeck = null;
+                this.switchTab('decks');
+                this.studyModeContent.classList.add('hidden');
+                this.noStudyContent.classList.remove('hidden');
+                this.announce('Study session ended.');
+            }
+        }
+
+        // Global functions for onclick events
+        function switchTab(tabName) {
+            app.switchTab(tabName);
+        }
+
+        // Initialize the app
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new StudyFlowApp();
+        });
+    </script>
+</body>
+</html>
