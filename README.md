@@ -7,7 +7,7 @@ This repository currently contains a minimal front-end (an `index.html`) intende
 ## Key points
 
 - Tech: plain HTML (single-file). Can be enhanced with JavaScript, CSS, or a front-end framework.
-- Purpose: provide a simple, local flashcards experience for studying and review.
+- Purpose: provide a simple, local flashcards experience for studying and reviewing notes.
 
 ## What you can do
 
