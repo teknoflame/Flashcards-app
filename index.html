@@ -689,6 +689,8 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 this.decks.push(deck);
                 if (this.saveDecks()) {
                     this.announce(`Deck "${name}" saved successfully with ${this.tempCards.length} cards.`);
+                    // Refresh decks list so the new deck appears immediately
+                    this.renderDecks();
                     this.resetCreateForm();
                     this.switchTab('decks');
                 } else {
