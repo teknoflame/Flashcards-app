@@ -224,6 +224,44 @@
             background: linear-gradient(90deg, #3498db, #2980b9);
             transition: width 0.3s ease;
         }
+
+        /* Accessible modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+        }
+
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: min(600px, 90vw);
+            background: #fff;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 1001;
+            padding: 20px;
+        }
+
+        .modal-header h2 {
+            margin-bottom: 10px;
+        }
+
+        .modal-body {
+            margin-bottom: 15px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .hidden[aria-hidden="true"] { display: none; }
     </style>
 </head>
 <body>
@@ -257,6 +295,9 @@
             <!-- Decks Tab -->
             <section class="tab-content active" id="decks-tab" role="tabpanel">
                 <h2>Your Study Decks</h2>
+                <div class="section" aria-label="Folder actions">
+                    <button id="add-folder-btn" type="button">Add Folder</button>
+                </div>
                 <div id="decks-list">
                     <div class="empty-state">
                         <h3>Welcome to StudyFlow!</h3>
@@ -283,6 +324,12 @@
                         <option value="History">History</option>
                         <option value="Other">Other</option>
                     </select>
+
+                    <label for="deck-folder">Folder:</label>
+                    <select id="deck-folder" aria-describedby="deck-folder-help">
+                        <!-- options populated by JS -->
+                    </select>
+                    <div id="deck-folder-help" class="sr-only">Choose a folder to save this deck into. Select "New folder…" to create one.</div>
                 </div>
 
                 <div class="section">
@@ -358,11 +405,28 @@ Mitochondria are the powerhouses of the cell."></textarea>
         </main>
     </div>
 
+    <!-- Accessible modal elements -->
+    <div id="modal-overlay" class="modal-overlay hidden" aria-hidden="true"></div>
+    <div id="app-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
+        <div class="modal-header">
+            <h2 id="modal-title">Dialog</h2>
+        </div>
+        <div class="modal-body">
+            <p id="modal-desc" class="sr-only"></p>
+            <div id="modal-content"></div>
+        </div>
+        <div class="modal-footer button-group">
+            <button id="modal-cancel-btn" type="button">Cancel</button>
+            <button id="modal-confirm-btn" type="button">Confirm</button>
+        </div>
+    </div>
+
     <script>
         // Simple StudyFlow App
         class StudyFlowApp {
             constructor() {
                 this.decks = this.loadDecks();
+                this.folders = this.loadFolders();
                 this.currentDeck = null;
                 this.currentCardIndex = 0;
                 this.showingFront = true;
@@ -370,6 +434,7 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 this.creationMode = null;
                 this.initializeElements();
                 this.setupEventListeners();
+                this.populateFolderOptions(this.deckFolder);
                 this.renderDecks();
             }
 
@@ -381,6 +446,7 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 // Create deck elements
                 this.deckName = document.getElementById('deck-name');
                 this.deckCategory = document.getElementById('deck-category');
+                this.deckFolder = document.getElementById('deck-folder');
                 this.autoMethodBtn = document.getElementById('auto-method-btn');
                 this.manualMethodBtn = document.getElementById('manual-method-btn');
                 this.autoInput = document.getElementById('auto-input');
@@ -410,6 +476,18 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 // Other elements
                 this.decksList = document.getElementById('decks-list');
                 this.announcements = document.getElementById('announcements');
+                this.addFolderBtn = document.getElementById('add-folder-btn');
+                this.appContainer = document.querySelector('.container');
+
+                // Modal elements
+                this.modal = document.getElementById('app-modal');
+                this.modalOverlay = document.getElementById('modal-overlay');
+                this.modalTitle = document.getElementById('modal-title');
+                this.modalDesc = document.getElementById('modal-desc');
+                this.modalContent = document.getElementById('modal-content');
+                this.modalCancelBtn = document.getElementById('modal-cancel-btn');
+                this.modalConfirmBtn = document.getElementById('modal-confirm-btn');
+                this._lastFocusedEl = null;
             }
 
             setupEventListeners() {
@@ -428,6 +506,7 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 this.addCardBtn.addEventListener('click', () => this.addManualCard());
                 this.saveDeckBtn.addEventListener('click', () => this.saveDeck());
                 this.cancelDeckBtn.addEventListener('click', () => this.cancelDeck());
+                this.deckFolder.addEventListener('change', (e) => this.onDeckFolderSelectChanged(e));
 
                 // Study mode
                 this.flipBtn.addEventListener('click', () => this.flipCard());
@@ -461,6 +540,11 @@ Mitochondria are the powerhouses of the cell."></textarea>
                         }
                     }
                 });
+
+                // Folder actions
+                if (this.addFolderBtn) {
+                    this.addFolderBtn.addEventListener('click', () => this.promptAddFolder());
+                }
             }
 
             announce(message) {
@@ -506,7 +590,154 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 }
             }
 
+            // Folder persistence
+            loadFolders() {
+                try {
+                    const saved = localStorage.getItem('studyflow-folders');
+                    const folders = saved ? JSON.parse(saved) : [];
+                    return Array.isArray(folders) ? folders : [];
+                } catch (error) {
+                    console.warn('Could not load folders:', error);
+                    return [];
+                }
+            }
+
+            saveFolders() {
+                try {
+                    localStorage.setItem('studyflow-folders', JSON.stringify(this.folders));
+                    return true;
+                } catch (error) {
+                    console.warn('Could not save folders:', error);
+                    return false;
+                }
+            }
+
+            generateFolderId() {
+                return 'f_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+            }
+
+            populateFolderOptions(selectEl, selectedId = '') {
+                if (!selectEl) return;
+                // Remember previous selection if not provided
+                const current = selectedId !== undefined && selectedId !== null ? selectedId : (selectEl.value || '');
+                selectEl.innerHTML = '';
+                const optNone = document.createElement('option');
+                optNone.value = '';
+                optNone.textContent = '(No folder)';
+                selectEl.appendChild(optNone);
+
+                // Sort folders A-Z
+                const foldersSorted = [...this.folders].sort((a, b) => a.name.localeCompare(b.name));
+                foldersSorted.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.id;
+                    opt.textContent = f.name;
+                    selectEl.appendChild(opt);
+                });
+
+                const optNew = document.createElement('option');
+                optNew.value = '__NEW__';
+                optNew.textContent = 'New folder…';
+                selectEl.appendChild(optNew);
+
+                // Restore selection
+                selectEl.value = current;
+                if (selectEl.value !== current) {
+                    // If previous selection no longer exists, fallback to none
+                    selectEl.value = '';
+                }
+            }
+
+            onDeckFolderSelectChanged(e) {
+                if (e.target.value === '__NEW__') {
+                    this.promptAddFolder({ focusSelectAfter: true, applyToSelect: e.target });
+                }
+            }
+
+            async promptAddFolder({ focusSelectAfter = false, applyToSelect = null } = {}) {
+                const name = await this.openTextModal({
+                    title: 'Create folder',
+                    label: 'Folder name',
+                    confirmText: 'Create',
+                });
+                if (!name || !name.trim()) {
+                    if (applyToSelect) applyToSelect.value = '';
+                    return;
+                }
+                const finalName = name.trim();
+                // Prevent duplicate (case-insensitive)
+                const dup = this.folders.find(f => f.name.toLowerCase() === finalName.toLowerCase());
+                if (dup) {
+                    this.announce(`A folder named "${finalName}" already exists.`);
+                    if (applyToSelect) {
+                        applyToSelect.value = dup.id;
+                    }
+                    return;
+                }
+                const folder = { id: this.generateFolderId(), name: finalName, created: new Date().toISOString() };
+                this.folders.push(folder);
+                if (this.saveFolders()) {
+                    this.announce(`Folder "${finalName}" created.`);
+                    this.populateFolderOptions(this.deckFolder, folder.id);
+                    this.renderDecks();
+                    if (applyToSelect) {
+                        this.populateFolderOptions(applyToSelect, folder.id);
+                        applyToSelect.value = folder.id;
+                    }
+                    if (focusSelectAfter) (applyToSelect || this.deckFolder).focus();
+                } else {
+                    this.announce('Error saving folder. Please try again.');
+                }
+            }
+
+            async renameFolder(folderId) {
+                const folder = this.folders.find(f => f.id === folderId);
+                if (!folder) return;
+                const newName = await this.openTextModal({
+                    title: 'Rename folder',
+                    label: 'Folder name',
+                    initialValue: folder.name,
+                    confirmText: 'Rename',
+                });
+                if (!newName || !newName.trim()) return;
+                const finalName = newName.trim();
+                const dup = this.folders.find(f => f.id !== folderId && f.name.toLowerCase() === finalName.toLowerCase());
+                if (dup) {
+                    this.announce(`A folder named "${finalName}" already exists.`);
+                    return;
+                }
+                folder.name = finalName;
+                if (this.saveFolders()) {
+                    this.populateFolderOptions(this.deckFolder, this.deckFolder.value);
+                    this.renderDecks();
+                    this.announce('Folder renamed.');
+                }
+            }
+
+            async deleteFolder(folderId) {
+                const folder = this.folders.find(f => f.id === folderId);
+                if (!folder) return;
+                const confirmDelete = await this.openConfirmModal({
+                    title: 'Delete folder',
+                    message: `Delete folder "${folder.name}"? Decks will be moved to (No folder).`,
+                    confirmText: 'Delete',
+                });
+                if (!confirmDelete) return;
+                // Move decks to no folder
+                this.decks.forEach(d => {
+                    if (d.folderId === folderId) d.folderId = null;
+                });
+                // Remove folder
+                this.folders = this.folders.filter(f => f.id !== folderId);
+                this.saveFolders();
+                this.saveDecks();
+                this.populateFolderOptions(this.deckFolder, this.deckFolder.value === folderId ? '' : this.deckFolder.value);
+                this.renderDecks();
+                this.announce('Folder deleted and decks moved to (No folder).');
+            }
+
             renderDecks() {
+                // Empty state
                 if (this.decks.length === 0) {
                     this.decksList.innerHTML = `
                         <div class="empty-state">
@@ -519,21 +750,68 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 }
 
                 this.decksList.innerHTML = '';
-                
-                this.decks.forEach((deck, index) => {
-                    const deckElement = document.createElement('div');
-                    deckElement.className = 'deck-card';
-                    deckElement.innerHTML = `
+
+                // Group decks by folderId
+                const groups = new Map(); // folderId (or null) -> array of deck indices
+                this.decks.forEach((deck, idx) => {
+                    const key = deck.folderId || null;
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(idx);
+                });
+
+                // Sort folders by name; ensure (No folder) first
+                const foldersSorted = [...this.folders].sort((a, b) => a.name.localeCompare(b.name));
+                const orderedKeys = [null, ...foldersSorted.map(f => f.id)].filter(k => groups.has(k));
+
+                orderedKeys.forEach(key => {
+                    const isUnfiled = key === null;
+                    const name = isUnfiled ? '(No folder)' : (this.folders.find(f => f.id === key)?.name || '(Unknown)');
+                    const section = document.createElement('section');
+                    const headingId = `folder-${key || 'none'}`;
+                    section.className = 'folder-group';
+                    section.setAttribute('aria-labelledby', headingId);
+                    section.innerHTML = `
                         <div class="deck-header">
-                            <h3 class="deck-title">${deck.name}</h3>
-                        </div>
-                        <p>${deck.cards.length} cards • ${deck.category}</p>
-                        <div class="button-group" style="margin-top: 15px;">
-                            <button type="button" onclick="app.startStudy(${index})">Study This Deck</button>
-                            <button type="button" onclick="app.deleteDeck(${index})">Delete</button>
+                            <h3 id="${headingId}" class="deck-title">${name}</h3>
+                            ${isUnfiled ? '' : `
+                                <div class="button-group" style="width:auto;">
+                                    <button type="button" onclick="app.renameFolder('${key}')">Rename</button>
+                                    <button type="button" onclick="app.deleteFolder('${key}')">Delete</button>
+                                </div>
+                            `}
                         </div>
                     `;
-                    this.decksList.appendChild(deckElement);
+
+                    const idxs = groups.get(key);
+                    idxs.forEach(deckIndex => {
+                        const deck = this.decks[deckIndex];
+                        const deckEl = document.createElement('div');
+                        deckEl.className = 'deck-card';
+                        const moveSelectId = `move-folder-${deckIndex}`;
+                        deckEl.innerHTML = `
+                            <div class="deck-header">
+                                <h3 class="deck-title">${deck.name}</h3>
+                            </div>
+                            <p>${deck.cards.length} cards • ${deck.category}</p>
+                            <div class="section" style="margin-top:10px;">
+                                <label for="${moveSelectId}">Move to folder:</label>
+                                <select id="${moveSelectId}" data-deck-index="${deckIndex}" aria-label="Move deck ${deck.name} to folder">
+                                </select>
+                            </div>
+                            <div class="button-group" style="margin-top: 15px;">
+                                <button type="button" onclick="app.startStudy(${deckIndex})">Study This Deck</button>
+                                <button type="button" onclick="app.deleteDeck(${deckIndex})">Delete</button>
+                            </div>
+                        `;
+                        section.appendChild(deckEl);
+
+                        // Populate move select
+                        const selectEl = deckEl.querySelector(`#${moveSelectId}`);
+                        this.populateFolderOptions(selectEl, deck.folderId || '');
+                        selectEl.addEventListener('change', (ev) => this.onMoveDeckFolderChanged(ev));
+                    });
+
+                    this.decksList.appendChild(section);
                 });
             }
 
@@ -667,6 +945,7 @@ Mitochondria are the powerhouses of the cell."></textarea>
             saveDeck() {
                 const name = this.deckName.value.trim();
                 const category = this.deckCategory.value;
+                const folderId = this.deckFolder.value || null;
                 
                 if (!name) {
                     this.announce('Please enter a deck name.');
@@ -682,6 +961,7 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 const deck = {
                     name,
                     category,
+                    folderId,
                     cards: this.tempCards,
                     created: new Date().toISOString()
                 };
@@ -698,15 +978,17 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 }
             }
 
-            cancelDeck() {
+            async cancelDeck() {
                 if (this.tempCards.length > 0) {
-                    if (confirm('Are you sure you want to cancel? All unsaved cards will be lost.')) {
-                        this.resetCreateForm();
-                        this.switchTab('decks');
-                    }
-                } else {
-                    this.switchTab('decks');
+                    const ok = await this.openConfirmModal({
+                        title: 'Discard deck?',
+                        message: 'Are you sure you want to cancel? All unsaved cards will be lost.',
+                        confirmText: 'Discard',
+                    });
+                    if (!ok) return;
                 }
+                this.resetCreateForm();
+                this.switchTab('decks');
             }
 
             resetCreateForm() {
@@ -720,16 +1002,39 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 this.autoInput.classList.add('hidden');
                 this.manualInput.classList.add('hidden');
                 this.cardsPreview.classList.add('hidden');
+                this.populateFolderOptions(this.deckFolder);
+                this.deckFolder.value = '';
             }
 
-            deleteDeck(index) {
+            async deleteDeck(index) {
                 const deck = this.decks[index];
-                if (confirm(`Are you sure you want to delete "${deck.name}"?`)) {
-                    this.decks.splice(index, 1);
-                    this.saveDecks();
-                    this.renderDecks();
-                    this.announce(`Deck "${deck.name}" deleted.`);
+                const ok = await this.openConfirmModal({
+                    title: 'Delete deck',
+                    message: `Are you sure you want to delete "${deck.name}"?`,
+                    confirmText: 'Delete',
+                });
+                if (!ok) return;
+                this.decks.splice(index, 1);
+                this.saveDecks();
+                this.renderDecks();
+                this.announce(`Deck "${deck.name}" deleted.`);
+            }
+
+            onMoveDeckFolderChanged(e) {
+                const target = e.target;
+                const deckIndex = Number(target.getAttribute('data-deck-index'));
+                if (target.value === '__NEW__') {
+                    this.promptAddFolder({ focusSelectAfter: true, applyToSelect: target });
+                    return;
                 }
+                const newFolderId = target.value || null;
+                const deck = this.decks[deckIndex];
+                deck.folderId = newFolderId;
+                this.saveDecks();
+                // Re-render to move deck into the correct group
+                this.renderDecks();
+                const folderName = newFolderId ? (this.folders.find(f => f.id === newFolderId)?.name || '(Unknown)') : '(No folder)';
+                this.announce(`Moved deck "${deck.name}" to folder ${folderName}.`);
             }
 
             startStudy(deckIndex) {
@@ -818,6 +1123,123 @@ Mitochondria are the powerhouses of the cell."></textarea>
         document.addEventListener('DOMContentLoaded', () => {
             app = new StudyFlowApp();
         });
+
+        // Modal helpers added to StudyFlowApp prototype
+        StudyFlowApp.prototype.openTextModal = function({ title, label, initialValue = '', confirmText = 'Save', cancelText = 'Cancel' }) {
+            return new Promise((resolve) => {
+                const inputId = 'modal-text-input';
+                this.modalTitle.textContent = title;
+                this.modalDesc.textContent = `${label} input dialog.`;
+                this.modalContent.innerHTML = `
+                    <label for="${inputId}">${label}:</label>
+                    <input type="text" id="${inputId}" value="${initialValue.replace(/\"/g, '&quot;')}">
+                `;
+                this.modalConfirmBtn.textContent = confirmText;
+                this.modalCancelBtn.textContent = cancelText;
+
+                const inputEl = this.modalContent.querySelector(`#${inputId}`);
+                const removeInputListener = () => inputEl.removeEventListener('input', updateConfirmState);
+                const cleanup = this._openModalCommon({
+                    initialFocus: inputEl,
+                    onConfirm: () => { removeInputListener(); cleanup(); resolve(inputEl.value); },
+                    onCancel: () => { removeInputListener(); cleanup(); resolve(null); },
+                });
+
+                const updateConfirmState = () => {
+                    const hasText = inputEl.value.trim().length > 0;
+                    this.modalConfirmBtn.disabled = !hasText;
+                };
+                inputEl.addEventListener('input', updateConfirmState);
+                updateConfirmState();
+
+                // Select text for quick editing
+                setTimeout(() => { inputEl.select(); }, 0);
+            });
+        };
+
+        StudyFlowApp.prototype.openConfirmModal = function({ title, message, confirmText = 'OK', cancelText = 'Cancel' }) {
+            return new Promise((resolve) => {
+                this.modalTitle.textContent = title;
+                this.modalDesc.textContent = message;
+                this.modalContent.innerHTML = `<p>${message}</p>`;
+                this.modalConfirmBtn.textContent = confirmText;
+                this.modalCancelBtn.textContent = cancelText;
+                this._openModalCommon({
+                    initialFocus: this.modalConfirmBtn,
+                    onConfirm: () => resolve(true),
+                    onCancel: () => resolve(false),
+                });
+            });
+        };
+
+        // Internal modal open/close with focus trap
+        StudyFlowApp.prototype._openModalCommon = function({ initialFocus, onConfirm, onCancel }) {
+            // Save last focused element
+            this._lastFocusedEl = document.activeElement;
+            // Show modal
+            this.modal.classList.remove('hidden');
+            this.modalOverlay.classList.remove('hidden');
+            this.modalOverlay.setAttribute('aria-hidden', 'false');
+            // Hide main for AT
+            if (this.appContainer) this.appContainer.setAttribute('aria-hidden', 'true');
+
+            // Focus management
+            const focusable = () => Array.from(this.modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(el => !el.disabled && el.offsetParent !== null);
+            const keyHandler = (e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    doCancel();
+                } else if (e.key === 'Tab') {
+                    const els = focusable();
+                    if (els.length === 0) return;
+                    const first = els[0];
+                    const last = els[els.length - 1];
+                    if (e.shiftKey && document.activeElement === first) {
+                        e.preventDefault();
+                        last.focus();
+                    } else if (!e.shiftKey && document.activeElement === last) {
+                        e.preventDefault();
+                        first.focus();
+                    }
+                }
+            };
+            document.addEventListener('keydown', keyHandler);
+
+            const doConfirm = () => { this._restoreModalClose(); onConfirm && onConfirm(); };
+            const doCancel = () => { this._restoreModalClose(); onCancel && onCancel(); };
+            const clickOutside = (e) => { if (e.target === this.modalOverlay) doCancel(); };
+            this.modalConfirmBtn.onclick = doConfirm;
+            this.modalCancelBtn.onclick = doCancel;
+            this.modalOverlay.addEventListener('click', clickOutside);
+
+            // Set initial focus
+            (initialFocus || this.modalConfirmBtn).focus();
+
+            // Return cleanup handler to remove listeners when closing
+            return () => {
+                document.removeEventListener('keydown', keyHandler);
+                this.modalOverlay.removeEventListener('click', clickOutside);
+                this.modalConfirmBtn.onclick = null;
+                this.modalCancelBtn.onclick = null;
+            };
+        };
+
+        StudyFlowApp.prototype._restoreModalClose = function() {
+            // Hide modal
+            this.modal.classList.add('hidden');
+            this.modalOverlay.classList.add('hidden');
+            this.modalOverlay.setAttribute('aria-hidden', 'true');
+            if (this.appContainer) this.appContainer.removeAttribute('aria-hidden');
+            // Restore focus
+            if (this._lastFocusedEl && typeof this._lastFocusedEl.focus === 'function') {
+                this._lastFocusedEl.focus();
+            }
+        };
+
+        // For backward compatibility
+        StudyFlowApp.prototype._closeModal = function() {
+            this._restoreModalClose();
+        };
     </script>
 </body>
 
