@@ -224,6 +224,60 @@
             background: linear-gradient(90deg, #3498db, #2980b9);
             transition: width 0.3s ease;
         }
+
+        /* Modal */
+        dialog::backdrop {
+            background: rgba(0,0,0,0.5);
+        }
+        .modal-dialog {
+            width: 96vw;
+            max-width: none;
+            height: 92vh;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 2px solid #3498db;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .modal-title {
+            margin: 0;
+            font-size: 20px;
+        }
+        .modal-body {
+            padding: 16px 20px 20px;
+            flex: 1 1 auto;
+            overflow: auto;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-body ul,
+        .modal-body ol {
+            display: inline-block;
+            text-align: left;
+            margin-left: 0;
+        }
+        .close-btn {
+            width: auto;
+            padding: 8px 12px;
+            background: transparent;
+            color: #2c3e50;
+            border: 2px solid #bdc3c7;
+        }
+        .close-btn:hover {
+            background: #f8f9fa;
+        }
     </style>
 </head>
 <body>
@@ -231,19 +285,11 @@
         <header>
             <h1>StudyFlow</h1>
             <p>Intelligent, accessible flashcards with spaced repetition - making studying seamless and engaging for everyone.</p>
+            <div class="section" style="margin-top:10px;">
+                <button id="open-help-btn" type="button">Help</button>
+            </div>
         </header>
 
-        <div class="keyboard-help">
-            <h3>Keyboard Navigation</h3>
-            <ul>
-                <li><strong>Tab/Shift+Tab:</strong> Navigate between elements</li>
-                <li><strong>Space/Enter:</strong> Activate buttons and flip cards</li>
-                <li><strong>Arrow Keys:</strong> Navigate between cards during study (Left/Right)</li>
-                <li><strong>1, 2, 3:</strong> Quick confidence rating or multiple choice selection</li>
-                <li><strong>R:</strong> Restart current study session</li>
-                <li><strong>Escape:</strong> Return to deck selection</li>
-            </ul>
-        </div>
 
         <div aria-live="polite" aria-atomic="true" class="sr-only" id="announcements"></div>
 
@@ -358,6 +404,47 @@ Mitochondria are the powerhouses of the cell."></textarea>
         </main>
     </div>
 
+    <!-- Help Modal -->
+    <dialog id="help-modal" aria-labelledby="help-title" aria-describedby="help-description">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h1 id="help-title" class="modal-title">Help</h1>
+                <button id="close-help-btn" type="button" class="close-btn" aria-label="Close help">Close</button>
+            </div>
+            <div id="help-description" class="modal-body">
+                <p>Welcome to StudyFlow. This Help covers how to navigate the app, create decks, and study efficiently with keyboard shortcuts.</p>
+
+                <h2>Overview</h2>
+                <p>StudyFlow lets you create flashcard decks, generate cards from notes, and study them with accessible controls and progress tracking.</p>
+
+                <h2>Keyboard Navigation</h2>
+                <ul>
+                    <li><strong>Tab/Shift+Tab:</strong> Move between interactive elements</li>
+                    <li><strong>Space/Enter:</strong> Activate buttons and flip the current card</li>
+                    <li><strong>Arrow Keys:</strong> Navigate cards during study (Left/Right)</li>
+                    <li><strong>?:</strong> Open Help</li>
+                    <li><strong>Escape:</strong> Close dialogs or return to deck selection</li>
+                </ul>
+
+                <h2>Creating Decks</h2>
+                <ol>
+                    <li>Go to “Create Deck”.</li>
+                    <li>Enter a deck name and pick a category.</li>
+                    <li>Choose to auto-generate from your notes or create cards manually.</li>
+                    <li>Preview and save when ready.</li>
+                </ol>
+
+                <h2>Studying Cards</h2>
+                <ul>
+                    <li>Select a deck from “My Decks”, then choose “Study This Deck”.</li>
+                    <li>Use Flip to switch between front and back.</li>
+                    <li>Use Previous/Next or arrow keys to move through cards.</li>
+                    <li>Progress updates are announced and shown visually.</li>
+                </ul>
+            </div>
+        </div>
+    </dialog>
+
     <script>
         // Simple StudyFlow App
         class StudyFlowApp {
@@ -410,6 +497,13 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 // Other elements
                 this.decksList = document.getElementById('decks-list');
                 this.announcements = document.getElementById('announcements');
+
+                // Help modal elements
+                this.openHelpBtn = document.getElementById('open-help-btn');
+                this.helpModal = document.getElementById('help-modal');
+                this.closeHelpBtn = document.getElementById('close-help-btn');
+                this.mainEl = document.querySelector('main');
+                this.lastFocusedBeforeHelp = null;
             }
 
             setupEventListeners() {
@@ -444,6 +538,14 @@ Mitochondria are the powerhouses of the cell."></textarea>
 
                 // Keyboard shortcuts
                 document.addEventListener('keydown', (e) => {
+                    // Global Help shortcut (Shift + / => ?)
+                    const tag = (e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '');
+                    if ((e.key === '?' || (e.shiftKey && e.key === '/')) && !['input','textarea','select'].includes(tag)) {
+                        e.preventDefault();
+                        this.openHelpModal();
+                        return;
+                    }
+
                     if (this.currentDeck) {
                         switch(e.key) {
                             case 'ArrowLeft':
@@ -456,9 +558,29 @@ Mitochondria are the powerhouses of the cell."></textarea>
                                 break;
                             case 'Escape':
                                 e.preventDefault();
-                                this.endStudy();
+                                if (this.isHelpOpen()) {
+                                    this.closeHelpModal();
+                                } else {
+                                    this.endStudy();
+                                }
                                 break;
                         }
+                    }
+                });
+
+                // Help modal events
+        if (this.openHelpBtn) this.openHelpBtn.addEventListener('click', () => this.openHelpModal());
+        if (this.closeHelpBtn) this.closeHelpBtn.addEventListener('click', () => this.closeHelpModal());
+        if (this.helpModal) this.helpModal.addEventListener('close', () => this.closeHelpModal(true));
+                // Trap focus within modal and handle Esc
+                document.addEventListener('keydown', (e) => {
+                    if (!this.isHelpOpen()) return;
+                    if (e.key === 'Tab') {
+            this.trapFocus(e);
+                    }
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        this.closeHelpModal();
                     }
                 });
             }
@@ -805,6 +927,89 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 this.studyModeContent.classList.add('hidden');
                 this.noStudyContent.classList.remove('hidden');
                 this.announce('Study session ended.');
+            }
+
+            // ===== Help Modal =====
+            isHelpOpen() {
+                return this.helpModal && this.helpModal.open === true;
+            }
+
+            getFocusableElementsInModal() {
+                if (!this.helpModal) return [];
+                const selectors = [
+                    'a[href]',
+                    'area[href]',
+                    'button:not([disabled])',
+                    'input:not([disabled])',
+                    'select:not([disabled])',
+                    'textarea:not([disabled])',
+                    '[tabindex]:not([tabindex="-1"])'
+                ];
+                return Array.from(this.helpModal.querySelectorAll(selectors.join(',')))
+                    .filter(el => el.offsetParent !== null || el === document.activeElement);
+            }
+
+            openHelpModal() {
+                if (!this.helpModal || this.isHelpOpen()) return;
+                this.lastFocusedBeforeHelp = document.activeElement;
+
+                // Show dialog
+                try { this.helpModal.showModal(); } catch (_) { this.helpModal.show(); }
+                this.helpModal.setAttribute('aria-hidden', 'false');
+
+                // Lock page scroll
+                document.body.style.overflow = 'hidden';
+
+                // Focus management
+                const dialog = this.helpModal.querySelector('.modal-dialog');
+                if (dialog) dialog.focus();
+                const focusables = this.getFocusableElementsInModal();
+                if (focusables.length) focusables[0].focus();
+
+                this.announce('Help opened.');
+            }
+
+            closeHelpModal() {
+                if (!this.helpModal || !this.isHelpOpen()) return;
+                // Close dialog if initiated by JS
+                if (!arguments[0]) {
+                    try { this.helpModal.close(); } catch (_) {}
+                }
+                this.helpModal.setAttribute('aria-hidden', 'true');
+
+                // Background unlock handled by UA; still restore overflow
+
+                // Restore page scroll
+                document.body.style.overflow = '';
+
+                // Restore focus
+                if (this.lastFocusedBeforeHelp && typeof this.lastFocusedBeforeHelp.focus === 'function') {
+                    this.lastFocusedBeforeHelp.focus();
+                } else if (this.openHelpBtn) {
+                    this.openHelpBtn.focus();
+                }
+
+                this.announce('Help closed.');
+            }
+
+            trapFocus(e) {
+                const focusables = this.getFocusableElementsInModal();
+                if (!focusables.length) return;
+                const first = focusables[0];
+                const last = focusables[focusables.length - 1];
+                const active = document.activeElement;
+
+                if (e.shiftKey) {
+                    if (active === first || !this.helpModal.contains(active)) {
+                        e.preventDefault();
+                        last.focus();
+                    }
+                } else {
+                    if (active === last) {
+                        e.preventDefault();
+                        first.focus();
+                    }
+                }
             }
         }
 
