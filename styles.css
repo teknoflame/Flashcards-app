@@ -222,3 +222,31 @@ button:hover {
     transition: width 0.3s ease;
     width: 0%;
 }
+
+/* Help dialog styles (scoped to #help-modal) - ensure backdrop */
+#help-modal dialog::backdrop, #help-modal::backdrop { background: rgba(0,0,0,0.5); }
+#help-modal .modal-dialog {
+    width: 96vw;
+    max-width: none;
+    height: 92vh;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    border: 2px solid #3498db;
+    display: flex;
+    flex-direction: column;
+}
+#help-modal .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #dee2e6; }
+#help-modal .modal-title { margin: 0; font-size: 20px; }
+#help-modal .modal-body { padding: 16px 20px 20px; flex: 1 1 auto; overflow: auto; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; }
+#help-modal .modal-body ul, #help-modal .modal-body ol { display: inline-block; text-align: left; margin-left: 0; }
+#help-modal .close-btn { width: auto; padding: 8px 12px; background: transparent; color: #2c3e50; border: 2px solid #bdc3c7; }
+#help-modal .close-btn:hover { background: #f8f9fa; }
+
+/* Accessible generic modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; }
+.modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(600px, 90vw); background: #fff; border: 2px solid #3498db; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 1001; padding: 20px; }
+.modal-header h2 { margin-bottom: 10px; }
+.modal-body { margin-bottom: 15px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+.hidden[aria-hidden="true"] { display: none; }
