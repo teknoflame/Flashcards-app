@@ -317,6 +317,16 @@
         }
 
         .hidden[aria-hidden="true"] { display: none; }
+        .media-embed-wrapper {
+            margin-top: 12px;
+            width: 100%;
+            max-width: 100%;
+        }
+        .media-embed-wrapper iframe {
+            width: 100% !important;
+            height: 360px !important;
+            border: 0;
+        }
     </style>
 </head>
 <body>
@@ -404,6 +414,10 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     
                     <label for="card-back">Back of card (answer or definition):</label>
                     <textarea id="card-back" rows="4" placeholder="Example: Mitosis is the process of cell division."></textarea>
+                    
+                    <label for="card-media">Optional media URL (YouTube link, Google Drive, etc.)</label>
+                    <input type="url" id="card-media" placeholder="https://www.youtube.com/watch?v=..." aria-describedby="card-media-help">
+                    <div id="card-media-help" class="sr-only">Provide a link to a video or file. You can preview it after adding the card. Supported: YouTube (embedded). Other services will open in a viewer.</div>
                     
                     <button id="add-card-btn" type="button">Add This Card</button>
                 </div>
@@ -543,6 +557,7 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 this.generateBtn = document.getElementById('generate-btn');
                 this.cardFront = document.getElementById('card-front');
                 this.cardBack = document.getElementById('card-back');
+                this.cardMedia = document.getElementById('card-media');
                 this.addCardBtn = document.getElementById('add-card-btn');
                 this.cardsPreview = document.getElementById('cards-preview');
                 this.previewCards = document.getElementById('preview-cards');
@@ -1018,7 +1033,7 @@ Mitochondria are the powerhouses of the cell."></textarea>
             addManualCard() {
                 const front = this.cardFront.value.trim();
                 const back = this.cardBack.value.trim();
-                
+                const media = this.cardMedia ? this.cardMedia.value.trim() : '';
                 if (!front || !back) {
                     this.announce('Please fill in both the front and back of the card.');
                     if (!front) this.cardFront.focus();
@@ -1026,12 +1041,13 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     return;
                 }
 
-                this.tempCards.push({ front, back });
-                
+                this.tempCards.push({ front, back, mediaUrl: media || null });
+
                 // Clear the form
                 this.cardFront.value = '';
                 this.cardBack.value = '';
-                
+                if (this.cardMedia) this.cardMedia.value = '';
+
                 this.showPreview();
                 this.announce(`Card added. You now have ${this.tempCards.length} cards.`);
                 this.cardFront.focus();
@@ -1050,6 +1066,13 @@ Mitochondria are the powerhouses of the cell."></textarea>
                         <p><strong>Front:</strong> ${card.front}</p>
                         <p><strong>Back:</strong> ${card.back}</p>
                     `;
+                    if (card.mediaUrl) {
+                        const previewBtn = document.createElement('button');
+                        previewBtn.type = 'button';
+                        previewBtn.textContent = 'Preview media';
+                        previewBtn.addEventListener('click', () => this.openMediaViewer(card.mediaUrl, `Card ${index + 1} media`));
+                        cardElement.appendChild(previewBtn);
+                    }
                     this.previewCards.appendChild(cardElement);
                 });
                 
@@ -1186,8 +1209,51 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 
                 const content = this.showingFront ? card.front : card.back;
                 const side = this.showingFront ? 'front' : 'back';
-                
-                this.cardContent.textContent = content;
+
+                // Clear previous content then set text
+                this.cardContent.textContent = '';
+                const textNode = document.createElement('div');
+                textNode.textContent = content;
+                this.cardContent.appendChild(textNode);
+
+                // If showing back and card has media, render embed below the text
+                const existingMedia = this.cardContent.querySelector('.media-embed-wrapper');
+                if (existingMedia) existingMedia.remove();
+                if (!this.showingFront && card.mediaUrl) {
+                    const mediaWrapper = document.createElement('div');
+                    mediaWrapper.className = 'media-embed-wrapper';
+                    mediaWrapper.setAttribute('aria-live', 'polite');
+
+                    // Accessible toggle so users can hide/show media if they prefer
+                    const toggleBtn = document.createElement('button');
+                    toggleBtn.type = 'button';
+                    toggleBtn.className = 'media-toggle-btn';
+                    toggleBtn.setAttribute('aria-controls', `media-content-${this.currentCardIndex}`);
+                    toggleBtn.setAttribute('aria-expanded', 'true');
+                    toggleBtn.textContent = 'Hide media';
+
+                    const mediaContent = document.createElement('div');
+                    mediaContent.id = `media-content-${this.currentCardIndex}`;
+                    mediaContent.className = 'media-embed-content';
+                    mediaContent.style.display = 'block';
+
+                    const embed = this.createMediaEmbed(card.mediaUrl, `${this.currentDeck.name} - Card ${this.currentCardIndex + 1}`);
+                    mediaContent.appendChild(embed);
+
+                    toggleBtn.addEventListener('click', () => {
+                        const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                        toggleBtn.setAttribute('aria-expanded', String(!expanded));
+                        mediaContent.style.display = expanded ? 'none' : 'block';
+                        toggleBtn.textContent = expanded ? 'Show media' : 'Hide media';
+                        // Announce the change for assistive tech
+                        try { this.announce(mediaContent.style.display === 'block' ? 'Media shown.' : 'Media hidden.'); } catch (e) {}
+                    });
+
+                    // Append toggle and media area
+                    mediaWrapper.appendChild(toggleBtn);
+                    mediaWrapper.appendChild(mediaContent);
+                    this.cardContent.appendChild(mediaWrapper);
+                }
                 this.flashcard.setAttribute('aria-label', 
                     `Card ${this.currentCardIndex + 1} of ${this.currentDeck.cards.length}, showing ${side}. ${content}. Press Space or Enter to flip.`
                 );
@@ -1446,6 +1512,175 @@ Mitochondria are the powerhouses of the cell."></textarea>
         // For backward compatibility
         StudyFlowApp.prototype._closeModal = function() {
             this._restoreModalClose();
+        };
+
+        // Media helpers (embedded videos/viewer) with YouTube IFrame API and error handling
+        StudyFlowApp.prototype._ensureYouTubeAPI = function() {
+            if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
+            if (this._ytPromise) return this._ytPromise;
+            this._ytPromise = new Promise((resolve) => {
+                const previous = window.onYouTubeIframeAPIReady;
+                window.onYouTubeIframeAPIReady = function() {
+                    if (typeof previous === 'function') previous();
+                    resolve(window.YT);
+                };
+                const tag = document.createElement('script');
+                tag.src = 'https://www.youtube.com/iframe_api';
+                tag.async = true;
+                document.head.appendChild(tag);
+            });
+            return this._ytPromise;
+        };
+
+        StudyFlowApp.prototype.createMediaEmbed = function(url, title = '') {
+            try {
+                const u = new URL(url);
+                // YouTube long form
+                if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) {
+                    const vid = u.searchParams.get('v');
+                    const container = document.createElement('div');
+                    container.className = 'yt-player-container';
+                    const playerId = `yt-player-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+                    const placeholder = document.createElement('div');
+                    placeholder.id = playerId;
+                    placeholder.setAttribute('role', 'region');
+                    placeholder.setAttribute('aria-label', title || 'Video player');
+                    placeholder.style.width = '100%';
+                    placeholder.style.height = '360px';
+                    container.appendChild(placeholder);
+
+                    // Create player asynchronously; capture `this`
+                    const self = this;
+                    this._ensureYouTubeAPI().then((YT) => {
+                        const origin = (location && location.protocol && location.protocol.startsWith('http')) ? location.origin : 'http://localhost';
+                        try {
+                            new YT.Player(playerId, {
+                                height: '360',
+                                width: '100%',
+                                videoId: vid,
+                                playerVars: { 'playsinline': 1, 'origin': origin },
+                                events: {
+                                    onError: function(event) {
+                                        // 153 => missing Referer / API client identity; 101/150 => embedding disabled
+                                        const code = event && event.data;
+                                        const msg = (code === 153) ? 'This video cannot be embedded from this page (missing or blocked Referer). Open on YouTube.' : (code === 101 || code === 150) ? 'The video owner does not allow embedding. Open on YouTube.' : 'An error occurred while trying to play this video. Open on YouTube.';
+                                        // Replace placeholder with accessible message + link
+                                        const fallback = document.createElement('div');
+                                        fallback.className = 'media-embed-fallback';
+                                        fallback.innerHTML = `<p>${msg}</p>`;
+                                        const link = document.createElement('a');
+                                        link.href = url;
+                                        link.target = '_blank';
+                                        link.rel = 'noopener noreferrer';
+                                        link.textContent = 'Open on YouTube';
+                                        link.style.display = 'inline-block';
+                                        link.style.marginTop = '8px';
+                                        fallback.appendChild(link);
+                                        placeholder.replaceWith(fallback);
+                                        try { self.announce('Media could not be embedded; opened fallback viewer.'); } catch (e) {}
+                                    }
+                                }
+                            });
+                        } catch (e) {
+                            // If player construction fails, show fallback
+                            const fallback = document.createElement('div');
+                            fallback.className = 'media-embed-fallback';
+                            fallback.innerHTML = `<p>Unable to initialize video player. Open on YouTube.</p>`;
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.target = '_blank';
+                            link.rel = 'noopener noreferrer';
+                            link.textContent = 'Open on YouTube';
+                            fallback.appendChild(link);
+                            placeholder.replaceWith(fallback);
+                        }
+                    }).catch(() => {
+                        // Could not load API: show fallback
+                        const fallback = document.createElement('div');
+                        fallback.className = 'media-embed-fallback';
+                        fallback.innerHTML = `<p>Unable to load video player. Open on YouTube.</p>`;
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        link.textContent = 'Open on YouTube';
+                        placeholder.replaceWith(fallback);
+                    });
+
+                    return container;
+                }
+
+                // YouTube short youtu.be links
+                if (u.hostname === 'youtu.be') {
+                    const vid = u.pathname.slice(1);
+                    return this.createMediaEmbed(`https://www.youtube.com/watch?v=${vid}`, title);
+                }
+            } catch (e) {
+                // ignore
+            }
+            // fallback: button that opens viewer in modal
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = 'Open media';
+            btn.addEventListener('click', () => this.openMediaViewer(url, title));
+            return btn;
+        };
+
+        StudyFlowApp.prototype.openMediaViewer = function(url, title = '') {
+            const content = document.createElement('div');
+            const embed = this.createMediaEmbed(url, title);
+            content.appendChild(embed);
+            // Provide an explicit direct link (helpful when embedding is blocked)
+            const direct = document.createElement('div');
+            direct.style.marginTop = '12px';
+            const viewLink = document.createElement('a');
+            viewLink.href = url;
+            viewLink.target = '_blank';
+            viewLink.rel = 'noopener noreferrer';
+            viewLink.textContent = 'Open media in a new tab';
+            direct.appendChild(viewLink);
+
+            this.modalTitle.textContent = title || 'Media Viewer';
+            this.modalDesc.textContent = `Viewing media: ${url}`;
+            this.modalContent.innerHTML = '';
+            this.modalContent.appendChild(content);
+            this.modalContent.appendChild(direct);
+            this.modalConfirmBtn.textContent = 'Close';
+            this.modalCancelBtn.textContent = 'Close';
+            this._openModalCommon({ initialFocus: this.modalConfirmBtn, onConfirm: () => {}, onCancel: () => {} });
+        };
+
+        // Detect embedding environment and show guidance when necessary
+        StudyFlowApp.prototype.checkEmbeddingEnvironment = function() {
+            // If page is opened via file://, many embeds will fail due to missing Referer header
+            if (location && location.protocol === 'file:') {
+                // Create a persistent banner at top of app container
+                const bannerId = 'embed-warning-banner';
+                if (document.getElementById(bannerId)) return;
+                const banner = document.createElement('div');
+                banner.id = bannerId;
+                banner.style.background = '#fff3cd';
+                banner.style.border = '1px solid #ffeeba';
+                banner.style.color = '#856404';
+                banner.style.padding = '12px';
+                banner.style.marginBottom = '12px';
+                banner.style.borderRadius = '6px';
+                banner.innerHTML = `
+                    <strong>Embedding may be blocked</strong> — this page is opened from your file system (file://) and some embedded videos (YouTube) require a valid Referer. To preview media, serve the project locally and open <code>http://localhost:8000/index.html</code> instead.
+                    <div style="margin-top:8px;">
+                        <button id="embed-banner-show-instructions" type="button">Show instructions to run a local server</button>
+                    </div>
+                `;
+                const container = document.querySelector('.container') || document.body;
+                container.insertBefore(banner, container.firstChild);
+
+                const btn = document.getElementById('embed-banner-show-instructions');
+                btn.addEventListener('click', () => {
+                    const help = `Run one of the following commands in the project root to serve files:\n\nPython 3:\npython -m http.server 8000\n\nNode (http-server):\nnpm install -g http-server\nhttp-server -p 8000`;
+                    // Use modal to show instructions
+                    this.openTextModal({ title: 'Run local server', label: 'Instructions', initialValue: help, confirmText: 'Close' });
+                });
+            }
         };
     </script>
 </body>
