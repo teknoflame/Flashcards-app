@@ -1,0 +1,11 @@
+{
+  "name": "flashcards-app",
+  "version": "1.0.0",
+  "description": "Static Flashcards app with a lightweight HTTP server for local development",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "teknoflame",
+  "license": "MIT"
+}
