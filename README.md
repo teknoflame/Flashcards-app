@@ -38,6 +38,14 @@ Since this project is a static HTML file, there are two quick ways to run it loc
      # then open http://localhost:8000 in your browser
      ```
 
+    - Using the bundled Node static server (recommended for this repo):
+
+  ```bash
+  npm install   # optional, no dependencies required but creates package-lock
+  npm start
+  # then open http://localhost:8000 in your browser
+  ```
+
 ## Project structure
 
 - `index.html` — the single-page entry point. Edit or split into separate `css`/`js` files as needed.

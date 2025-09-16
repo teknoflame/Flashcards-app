@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <!-- Explicit referrer policy to ensure YouTube receives an origin (prevents error 153 when possible) -->
+        <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>StudyFlow - Accessible Flashcards Study App</title>
     <style>
         * {
@@ -144,27 +146,53 @@
         }
 
         .keyboard-help ul {
-            margin-left: 20px;
+                        // Pass a valid origin only when served over http/https; do NOT spoof localhost when opened via file://
+                        const playerVars = { playsinline: 1 };
+                        if (location && location.protocol && location.protocol.startsWith('http')) {
+                            playerVars.origin = location.origin;
+                        }
         }
 
         .keyboard-help li {
             margin-bottom: 5px;
         }
-
+                                playerVars,
         .empty-state {
             text-align: center;
             padding: 40px;
             color: #6c757d;
-        }
+                                        let msg;
+                                        if (code === 153) {
+                                            msg = 'Embedding blocked (error 153: missing Referer / API client identity). Run this app via a local web server (http://localhost) instead of file://, and avoid extensions that strip the Referer header.';
+                                        } else if (code === 101 || code === 150) {
+                                            msg = 'The video owner has disabled embedding. You must open it on YouTube.';
+                                        } else {
+                                            msg = 'An error occurred while trying to play this video.';
+                                        }
 
         .deck-card {
             background: #f8f9fa;
-            border: 2px solid #dee2e6;
+                                        fallback.innerHTML = `<p>${msg}</p>`;
             border-radius: 6px;
             padding: 20px;
             margin-bottom: 15px;
             transition: all 0.2s;
         }
+                                        link.style.display = 'inline-block';
+                                        link.style.marginTop = '8px';
+                                        // Provide quick instructions for local hosting if 153
+                                        if (code === 153) {
+                                            const tips = document.createElement('details');
+                                            tips.style.marginTop = '10px';
+                                            const sum = document.createElement('summary');
+                                            sum.textContent = 'How to fix locally';
+                                            const pre = document.createElement('pre');
+                                            pre.style.whiteSpace = 'pre-wrap';
+                                            pre.textContent = 'Python 3:\n  python -m http.server 8000\nNode (http-server):\n  npx http-server -p 8000\nThen open: http://localhost:8000/index.html';
+                                            tips.appendChild(sum);
+                                            tips.appendChild(pre);
+                                            fallback.appendChild(tips);
+                                        }
 
         .deck-card:hover {
             border-color: #3498db;
@@ -622,7 +650,15 @@ Mitochondria are the powerhouses of the cell."></textarea>
 
                 // Study mode
                 this.flipBtn.addEventListener('click', () => this.flipCard());
-                this.flashcard.addEventListener('click', () => this.flipCard());
+                // Only flip the card when clicking on the card background/text.
+                // Ignore clicks that originate from interactive elements (buttons, links, iframes, inputs, media areas)
+                this.flashcard.addEventListener('click', (e) => {
+                    try {
+                        const ignored = e.target && e.target.closest && e.target.closest('button, a, iframe, input, textarea, select, .media-embed-wrapper, .media-embed-content, .yt-player-container');
+                        if (ignored) return;
+                    } catch (_) {}
+                    this.flipCard();
+                });
                 this.flashcard.addEventListener('keydown', (e) => {
                     if (e.key === ' ' || e.key === 'Enter') {
                         e.preventDefault();
@@ -1236,23 +1272,61 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     mediaContent.id = `media-content-${this.currentCardIndex}`;
                     mediaContent.className = 'media-embed-content';
                     mediaContent.style.display = 'block';
+                    // Expose as a region and allow programmatic focus for assistive tech
+                    mediaContent.setAttribute('role', 'region');
+                    mediaContent.setAttribute('aria-label', `${this.currentDeck && this.currentDeck.name ? this.currentDeck.name : 'Card'} media`);
+                    mediaContent.tabIndex = -1;
 
                     const embed = this.createMediaEmbed(card.mediaUrl, `${this.currentDeck.name} - Card ${this.currentCardIndex + 1}`);
                     mediaContent.appendChild(embed);
 
-                    toggleBtn.addEventListener('click', () => {
+                    // Stop propagation so clicks on these controls don't flip the parent flashcard
+                    toggleBtn.addEventListener('click', (evt) => {
+                        evt.stopPropagation();
                         const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
                         toggleBtn.setAttribute('aria-expanded', String(!expanded));
-                        mediaContent.style.display = expanded ? 'none' : 'block';
-                        toggleBtn.textContent = expanded ? 'Show media' : 'Hide media';
+                        const nowShown = expanded ? false : true;
+                        mediaContent.style.display = nowShown ? 'block' : 'none';
+                        toggleBtn.textContent = nowShown ? 'Hide media' : 'Show media';
+
+                        // When showing the media, move focus inside the media region so screen readers and keyboard users
+                        // can discover and interact with the player. If an iframe exists, make it focusable first.
+                        if (nowShown) {
+                            const focusFirst = () => {
+                                const first = mediaContent.querySelector('iframe, a, button, [tabindex]');
+                                if (first) {
+                                    if (first.tagName && first.tagName.toLowerCase() === 'iframe') first.setAttribute('tabindex', '0');
+                                    try { first.focus(); } catch (_) { mediaContent.focus(); }
+                                } else {
+                                    try { mediaContent.focus(); } catch (_) {}
+                                }
+                            };
+                            setTimeout(focusFirst, 250);
+                        } else {
+                            try { toggleBtn.focus(); } catch(_) {}
+                        }
+
                         // Announce the change for assistive tech
-                        try { this.announce(mediaContent.style.display === 'block' ? 'Media shown.' : 'Media hidden.'); } catch (e) {}
+                        try { this.announce(nowShown ? 'Media shown.' : 'Media hidden.'); } catch (e) {}
                     });
 
-                    // Append toggle and media area
+                    // Prevent clicks inside the media area (including the iframe) from bubbling up to
+                    // the flashcard so users can interact with the player.
+                    mediaContent.addEventListener('click', (evt) => { evt.stopPropagation(); });
+
+                    // Make toggle explicitly focusable and append toggle and media area
+                    toggleBtn.tabIndex = 0;
                     mediaWrapper.appendChild(toggleBtn);
                     mediaWrapper.appendChild(mediaContent);
                     this.cardContent.appendChild(mediaWrapper);
+
+                    // If we've just flipped to the back with media visible, move focus to the toggle
+                    // so NVDA/keyboard users can interact with the media immediately.
+                    if (!this.showingFront) {
+                        setTimeout(() => {
+                            try { toggleBtn.focus(); } catch (_) {}
+                        }, 50);
+                    }
                 }
                 this.flashcard.setAttribute('aria-label', 
                     `Card ${this.currentCardIndex + 1} of ${this.currentDeck.cards.length}, showing ${side}. ${content}. Press Space or Enter to flip.`
@@ -1395,6 +1469,8 @@ Mitochondria are the powerhouses of the cell."></textarea>
         let app;
         document.addEventListener('DOMContentLoaded', () => {
             app = new StudyFlowApp();
+            // Warn user early if running from file:// which can trigger YouTube error 153
+            try { app.checkEmbeddingEnvironment(); } catch (_) {}
         });
 
         // Modal helpers added to StudyFlowApp prototype
@@ -1545,6 +1621,8 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     placeholder.id = playerId;
                     placeholder.setAttribute('role', 'region');
                     placeholder.setAttribute('aria-label', title || 'Video player');
+                    // Make placeholder programmatically focusable so screen readers/keyboard users can reach it
+                    placeholder.tabIndex = 0;
                     placeholder.style.width = '100%';
                     placeholder.style.height = '360px';
                     container.appendChild(placeholder);
@@ -1552,19 +1630,27 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     // Create player asynchronously; capture `this`
                     const self = this;
                     this._ensureYouTubeAPI().then((YT) => {
-                        const origin = (location && location.protocol && location.protocol.startsWith('http')) ? location.origin : 'http://localhost';
+                        const playerVars = { playsinline: 1 };
+                        if (location && location.protocol && location.protocol.startsWith('http')) {
+                            playerVars.origin = location.origin; // only set when valid
+                        }
                         try {
                             new YT.Player(playerId, {
                                 height: '360',
                                 width: '100%',
                                 videoId: vid,
-                                playerVars: { 'playsinline': 1, 'origin': origin },
+                                playerVars,
                                 events: {
                                     onError: function(event) {
-                                        // 153 => missing Referer / API client identity; 101/150 => embedding disabled
                                         const code = event && event.data;
-                                        const msg = (code === 153) ? 'This video cannot be embedded from this page (missing or blocked Referer). Open on YouTube.' : (code === 101 || code === 150) ? 'The video owner does not allow embedding. Open on YouTube.' : 'An error occurred while trying to play this video. Open on YouTube.';
-                                        // Replace placeholder with accessible message + link
+                                        let msg;
+                                        if (code === 153) {
+                                            msg = 'Embedding blocked (error 153: missing Referer / client identity). Serve this app via http://localhost instead of file:// and disable any extension that strips the Referer header.';
+                                        } else if (code === 101 || code === 150) {
+                                            msg = 'Embedding disabled by the video owner.';
+                                        } else {
+                                            msg = 'An error occurred while playing this video.';
+                                        }
                                         const fallback = document.createElement('div');
                                         fallback.className = 'media-embed-fallback';
                                         fallback.innerHTML = `<p>${msg}</p>`;
@@ -1575,17 +1661,28 @@ Mitochondria are the powerhouses of the cell."></textarea>
                                         link.textContent = 'Open on YouTube';
                                         link.style.display = 'inline-block';
                                         link.style.marginTop = '8px';
+                                        if (code === 153) {
+                                            const details = document.createElement('details');
+                                            details.style.marginTop = '10px';
+                                            const summary = document.createElement('summary');
+                                            summary.textContent = 'Local server instructions';
+                                            const pre = document.createElement('pre');
+                                            pre.style.whiteSpace = 'pre-wrap';
+                                            pre.textContent = 'Python 3:\n  python -m http.server 8000\nNode (http-server):\n  npx http-server -p 8000\nThen open: http://localhost:8000/index.html';
+                                            details.appendChild(summary);
+                                            details.appendChild(pre);
+                                            fallback.appendChild(details);
+                                        }
                                         fallback.appendChild(link);
                                         placeholder.replaceWith(fallback);
-                                        try { self.announce('Media could not be embedded; opened fallback viewer.'); } catch (e) {}
+                                        try { self.announce('Media embed failed; fallback shown.'); } catch(e) {}
                                     }
                                 }
                             });
                         } catch (e) {
-                            // If player construction fails, show fallback
                             const fallback = document.createElement('div');
                             fallback.className = 'media-embed-fallback';
-                            fallback.innerHTML = `<p>Unable to initialize video player. Open on YouTube.</p>`;
+                            fallback.innerHTML = `<p>Unable to initialize video player.</p>`;
                             const link = document.createElement('a');
                             link.href = url;
                             link.target = '_blank';
