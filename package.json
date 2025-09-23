@@ -1,11 +1,21 @@
 {
   "name": "flashcards-app",
   "version": "1.0.0",
-  "description": "Static Flashcards app with a lightweight HTTP server for local development",
+  "type": "module",
+  "description": "Flashcards app converted to Next.js with Drizzle (SQLite) backend",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "prepare-db": "node ./scripts/init-db.js"
   },
   "author": "teknoflame",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "next": "^13.5.6",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "uuid": "^9.0.0"
+  }
 }
