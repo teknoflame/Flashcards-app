@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import HelpModal from '../components/HelpModal';
+import AppModal from '../components/AppModal';
 
 export default function AppPage() {
   const containerRef = useRef(null);
@@ -138,66 +140,10 @@ export default function AppPage() {
       </main>
     </div>
 
-    <!-- Help Modal (dialog) -->
-    <dialog id="help-modal" aria-labelledby="help-title" aria-describedby="help-description">
-      <div class="modal-dialog">
-        <div class="modal-header">
-          <h1 id="help-title" class="modal-title">Help</h1>
-          <button id="close-help-btn" type="button" class="close-btn" aria-label="Close help">Close</button>
-        </div>
-        <div id="help-description" class="modal-body">
-          <p>Welcome to StudyFlow. This Help covers how to navigate the app, create decks, and study efficiently with keyboard shortcuts.</p>
-
-          <h2>Overview</h2>
-          <p>StudyFlow lets you create flashcard decks, generate cards from notes, and study them with accessible controls and progress tracking.</p>
-
-          <h2>Keyboard Navigation</h2>
-          <ul>
-            <li><strong>Tab/Shift+Tab:</strong> Move between interactive elements</li>
-            <li><strong>Space/Enter:</strong> Activate buttons and flip the current card</li>
-            <li><strong>Arrow Keys:</strong> Navigate cards during study (Left/Right)</li>
-            <li><strong>?:</strong> Open Help</li>
-            <li><strong>Escape:</strong> Close dialogs or return to deck selection</li>
-          </ul>
-
-          <h2>Creating Decks</h2>
-          <ol>
-            <li>Go to “Create Deck”.</li>
-            <li>Enter a deck name and pick a category.</li>
-            <li>Choose to auto-generate from your notes or create cards manually.</li>
-            <li>Preview and save when ready.</li>
-          </ol>
-
-          <h2>Studying Cards</h2>
-          <ul>
-            <li>Select a deck from “My Decks”, then choose “Study This Deck”.</li>
-            <li>Use Flip to switch between front and back.</li>
-            <li>Use Previous/Next or arrow keys to move through cards.</li>
-            <li>Progress updates are announced and shown visually.</li>
-          </ul>
-        </div>
-      </div>
-    </dialog>
-
-    <!-- Accessible generic modal elements (used for prompts/confirmations) -->
-    <div id="modal-overlay" class="modal-overlay hidden" aria-hidden="true"></div>
-    <div id="app-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
-      <div class="modal-header">
-        <h2 id="modal-title">Dialog</h2>
-      </div>
-      <div class="modal-body">
-        <p id="modal-desc" class="sr-only"></p>
-        <div id="modal-content"></div>
-      </div>
-      <div class="modal-footer button-group">
-        <button id="modal-cancel-btn" type="button">Cancel</button>
-        <button id="modal-confirm-btn" type="button">Confirm</button>
-      </div>
-    </div>
+  <!-- dialogs are provided by React components -->
   `;
 
   containerRef.current.innerHTML = html;
-
   // Load the legacy app script from the public folder
   const existing = document.querySelector('script[data-legacy-app]');
   if (!existing) {
@@ -215,7 +161,7 @@ export default function AppPage() {
       try { window.app.checkEmbeddingEnvironment && window.app.checkEmbeddingEnvironment(); } catch (_) {}
       }
     } catch (e) {
-      console.error('Failed to initialize legacy app:', e);
+      console.warn('Failed to initialize legacy app:', e);
     }
     };
     document.body.appendChild(s);
@@ -229,5 +175,11 @@ export default function AppPage() {
   };
   }, []);
 
-  return <div ref={containerRef} />;
+  return (
+    <>
+      <div ref={containerRef} />
+      <HelpModal />
+      <AppModal />
+    </>
+  );
 }
