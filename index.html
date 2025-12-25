@@ -919,8 +919,8 @@ Mitochondria are the powerhouses of the cell."></textarea>
                             <h3 id="${headingId}" class="deck-title">${name}</h3>
                             ${isUnfiled ? '' : `
                                 <div class="button-group" style="width:auto;">
-                                    <button type="button" onclick="app.renameFolder('${key}')">Rename</button>
-                                    <button type="button" onclick="app.deleteFolder('${key}')">Delete</button>
+                                    <button type="button" onclick="app.renameFolder('${key}')" aria-label="Rename folder ${name}">Rename</button>
+                                    <button type="button" onclick="app.deleteFolder('${key}')" aria-label="Delete folder ${name}">Delete</button>
                                 </div>
                             `}
                         </div>
@@ -929,22 +929,23 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     const idxs = groups.get(key);
                     idxs.forEach(deckIndex => {
                         const deck = this.decks[deckIndex];
-                        const deckEl = document.createElement('div');
+                        const deckEl = document.createElement('article');
                         deckEl.className = 'deck-card';
+                        deckEl.setAttribute('aria-labelledby', `deck-title-${deckIndex}`);
                         const moveSelectId = `move-folder-${deckIndex}`;
                         deckEl.innerHTML = `
                             <div class="deck-header">
-                                <h3 class="deck-title">${deck.name}</h3>
+                                <h4 id="deck-title-${deckIndex}" class="deck-title">${deck.name}</h4>
                             </div>
                             <p>${deck.cards.length} cards • ${deck.category}</p>
                             <div class="section" style="margin-top:10px;">
                                 <label for="${moveSelectId}">Move to folder:</label>
-                                <select id="${moveSelectId}" data-deck-index="${deckIndex}" aria-label="Move deck ${deck.name} to folder">
+                                <select id="${moveSelectId}" data-deck-index="${deckIndex}">
                                 </select>
                             </div>
                             <div class="button-group" style="margin-top: 15px;">
-                                <button type="button" onclick="app.startStudy(${deckIndex})">Study This Deck</button>
-                                <button type="button" onclick="app.deleteDeck(${deckIndex})">Delete</button>
+                                <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study This Deck</button>
+                                <button type="button" onclick="app.deleteDeck(${deckIndex})" aria-label="Delete deck ${deck.name}">Delete</button>
                             </div>
                         `;
                         section.appendChild(deckEl);
