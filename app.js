@@ -3,6 +3,7 @@ class StudyFlowApp {
     constructor() {
         this.decks = this.loadDecks();
         this.folders = this.loadFolders();
+        this.folderExpandedState = this.loadFolderExpandedState();
         this.currentDeck = null;
         this.currentCardIndex = 0;
         this.showingFront = true;
@@ -224,6 +225,26 @@ class StudyFlowApp {
         }
     }
 
+    loadFolderExpandedState() {
+        try {
+            const saved = localStorage.getItem('studyflow-folder-expanded');
+            return saved ? JSON.parse(saved) : {};
+        } catch (error) {
+            console.warn('Could not load folder expanded state:', error);
+            return {};
+        }
+    }
+
+    saveFolderExpandedState() {
+        try {
+            localStorage.setItem('studyflow-folder-expanded', JSON.stringify(this.folderExpandedState));
+            return true;
+        } catch (error) {
+            console.warn('Could not save folder expanded state:', error);
+            return false;
+        }
+    }
+
     generateFolderId() {
         return 'f_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     }
@@ -332,11 +353,25 @@ class StudyFlowApp {
         if (!confirmDelete) return;
         this.decks.forEach(d => { if (d.folderId === folderId) d.folderId = null; });
         this.folders = this.folders.filter(f => f.id !== folderId);
+        delete this.folderExpandedState[folderId];
         this.saveFolders();
         this.saveDecks();
+        this.saveFolderExpandedState();
         this.populateFolderOptions(this.deckFolder, this.deckFolder.value === folderId ? '' : this.deckFolder.value);
         this.renderDecks();
         this.announce('Folder deleted and decks moved to (No folder).');
+    }
+
+    toggleFolder(folderId) {
+        const isExpanded = this.folderExpandedState[folderId] || false;
+        this.folderExpandedState[folderId] = !isExpanded;
+        this.saveFolderExpandedState();
+        this.renderDecks();
+        const folder = this.folders.find(f => f.id === folderId);
+        if (folder) {
+            const newState = this.folderExpandedState[folderId] ? 'expanded' : 'collapsed';
+            this.announce(`Folder "${folder.name}" ${newState}.`);
+        }
     }
 
     renderDecks() {
@@ -353,6 +388,7 @@ class StudyFlowApp {
 
         this.decksList.innerHTML = '';
 
+        // Group decks by folder
         const groups = new Map();
         this.decks.forEach((deck, idx) => {
             const key = deck.folderId || null;
@@ -361,58 +397,118 @@ class StudyFlowApp {
         });
 
         const foldersSorted = [...this.folders].sort((a, b) => a.name.localeCompare(b.name));
-        const orderedKeys = [null, ...foldersSorted.map(f => f.id)].filter(k => groups.has(k));
 
-        orderedKeys.forEach(key => {
-            const isUnfiled = key === null;
-            const name = isUnfiled ? '(No folder)' : (this.folders.find(f => f.id === key)?.name || '(Unknown)');
-            const section = document.createElement('section');
-            const headingId = `folder-${key || 'none'}`;
-            section.className = 'folder-group';
-            section.setAttribute('aria-labelledby', headingId);
-            section.innerHTML = `
-                <div class="deck-header">
-                    <h3 id="${headingId}" class="deck-title">${name}</h3>
-                    ${isUnfiled ? '' : `
-                        <div class="button-group" style="width:auto;">
-                            <button type="button" onclick="app.renameFolder('${key}')" aria-label="Rename folder ${name}">Rename</button>
-                            <button type="button" onclick="app.deleteFolder('${key}')" aria-label="Delete folder ${name}">Delete</button>
-                        </div>
-                    `}
-                </div>
-            `;
+        // Render Folders section if there are any folders
+        if (foldersSorted.length > 0) {
+            const foldersSection = document.createElement('section');
+            foldersSection.className = 'folders-section';
+            foldersSection.setAttribute('aria-labelledby', 'folders-heading');
 
-            const idxs = groups.get(key);
-            idxs.forEach(deckIndex => {
-                const deck = this.decks[deckIndex];
-                const deckEl = document.createElement('article');
-                deckEl.className = 'deck-card';
-                deckEl.setAttribute('aria-labelledby', `deck-title-${deckIndex}`);
-                const moveSelectId = `move-folder-${deckIndex}`;
-                deckEl.innerHTML = `
-                    <div class="deck-header">
-                        <h4 id="deck-title-${deckIndex}" class="deck-title">${deck.name}</h4>
-                    </div>
-                    <p>${deck.cards.length} cards • ${deck.category}</p>
-                    <div class="section" style="margin-top:10px;">
-                        <label for="${moveSelectId}">Move to folder:</label>
-                        <select id="${moveSelectId}" data-deck-index="${deckIndex}">
-                        </select>
-                    </div>
-                    <div class="button-group deck-actions">
-                        <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study This Deck</button>
-                        <button type="button" onclick="app.deleteDeck(${deckIndex})" aria-label="Delete deck ${deck.name}">Delete</button>
-                    </div>
+            const foldersHeading = document.createElement('h3');
+            foldersHeading.id = 'folders-heading';
+            foldersHeading.textContent = 'Folders';
+            foldersSection.appendChild(foldersHeading);
+
+            foldersSorted.forEach(folder => {
+                const folderId = folder.id;
+                const folderDecks = groups.get(folderId) || [];
+                const isExpanded = this.folderExpandedState[folderId] || false;
+                const deckCount = folderDecks.length;
+                const decksContentId = `folder-content-${folderId}`;
+
+                const folderContainer = document.createElement('div');
+                folderContainer.className = 'folder-container';
+
+                // Folder toggle button
+                const folderButton = document.createElement('button');
+                folderButton.type = 'button';
+                folderButton.className = 'folder-toggle';
+                folderButton.setAttribute('aria-expanded', isExpanded.toString());
+                folderButton.setAttribute('aria-controls', decksContentId);
+                folderButton.innerHTML = `<span class="folder-icon">${isExpanded ? '▼' : '▶'}</span> ${folder.name} <span class="folder-count">(${deckCount} ${deckCount === 1 ? 'deck' : 'decks'})</span>`;
+                folderButton.onclick = () => this.toggleFolder(folderId);
+
+                folderContainer.appendChild(folderButton);
+
+                // Folder actions (rename/delete)
+                const folderActions = document.createElement('div');
+                folderActions.className = 'folder-actions';
+                folderActions.innerHTML = `
+                    <button type="button" onclick="app.renameFolder('${folderId}')" aria-label="Rename folder ${folder.name}">Rename</button>
+                    <button type="button" onclick="app.deleteFolder('${folderId}')" aria-label="Delete folder ${folder.name}">Delete</button>
                 `;
-                section.appendChild(deckEl);
+                folderContainer.appendChild(folderActions);
 
-                const selectEl = deckEl.querySelector(`#${moveSelectId}`);
-                this.populateFolderOptions(selectEl, deck.folderId || '');
-                selectEl.addEventListener('change', (ev) => this.onMoveDeckFolderChanged(ev));
+                // Decks content (only shown when expanded)
+                if (isExpanded && folderDecks.length > 0) {
+                    const decksContent = document.createElement('div');
+                    decksContent.id = decksContentId;
+                    decksContent.className = 'folder-decks-content';
+                    decksContent.setAttribute('role', 'region');
+                    decksContent.setAttribute('aria-label', `Decks in ${folder.name}`);
+
+                    folderDecks.forEach(deckIndex => {
+                        const deckEl = this.createDeckCard(deckIndex);
+                        decksContent.appendChild(deckEl);
+                    });
+
+                    folderContainer.appendChild(decksContent);
+                }
+
+                foldersSection.appendChild(folderContainer);
             });
 
-            this.decksList.appendChild(section);
-        });
+            this.decksList.appendChild(foldersSection);
+        }
+
+        // Render "My Decks" section for unorganized decks
+        const unorganizedDecks = groups.get(null) || [];
+        if (unorganizedDecks.length > 0) {
+            const myDecksSection = document.createElement('section');
+            myDecksSection.className = 'my-decks-section';
+            myDecksSection.setAttribute('aria-labelledby', 'my-decks-heading');
+
+            const myDecksHeading = document.createElement('h3');
+            myDecksHeading.id = 'my-decks-heading';
+            myDecksHeading.textContent = 'My Decks';
+            myDecksSection.appendChild(myDecksHeading);
+
+            unorganizedDecks.forEach(deckIndex => {
+                const deckEl = this.createDeckCard(deckIndex);
+                myDecksSection.appendChild(deckEl);
+            });
+
+            this.decksList.appendChild(myDecksSection);
+        }
+    }
+
+    createDeckCard(deckIndex) {
+        const deck = this.decks[deckIndex];
+        const deckEl = document.createElement('article');
+        deckEl.className = 'deck-card';
+        deckEl.setAttribute('aria-labelledby', `deck-title-${deckIndex}`);
+        const moveSelectId = `move-folder-${deckIndex}`;
+        deckEl.innerHTML = `
+            <div class="deck-header">
+                <h4 id="deck-title-${deckIndex}" class="deck-title">${deck.name}</h4>
+            </div>
+            <p>${deck.cards.length} cards • ${deck.category}</p>
+            <div class="section" style="margin-top:10px;">
+                <label for="${moveSelectId}">Move to folder:</label>
+                <select id="${moveSelectId}" data-deck-index="${deckIndex}">
+                </select>
+            </div>
+            <div class="button-group deck-actions">
+                <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study This Deck</button>
+                <button type="button" onclick="app.deleteDeck(${deckIndex})" aria-label="Delete deck ${deck.name}">Delete</button>
+            </div>
+        `;
+
+        const selectEl = deckEl.querySelector(`#${moveSelectId}`);
+        this.populateFolderOptions(selectEl, deck.folderId || '');
+        selectEl.addEventListener('change', (ev) => this.onMoveDeckFolderChanged(ev));
+
+        return deckEl;
     }
 
     setCreationMode(mode) {
