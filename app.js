@@ -109,14 +109,21 @@ class StudyFlowApp {
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
-            // Global Help shortcut (Shift + / => ?)
+            // Skip shortcuts when typing in input fields
             const tag = (e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '');
-            if ((e.key === '?' || (e.shiftKey && e.key === '/')) && !['input','textarea','select'].includes(tag)) {
+            const isTyping = ['input', 'textarea', 'select'].includes(tag);
+
+            // Skip if a modal is open (except help modal shortcuts)
+            const isModalOpen = this.isAppModalOpen();
+
+            // Global Help shortcut (Shift + / => ?)
+            if ((e.key === '?' || (e.shiftKey && e.key === '/')) && !isTyping) {
                 e.preventDefault();
                 this.openHelpModal();
                 return;
             }
 
+            // Study mode shortcuts
             if (this.currentDeck) {
                 switch(e.key) {
                     case 'ArrowLeft':
@@ -133,6 +140,55 @@ class StudyFlowApp {
                             this.closeHelpModal();
                         } else {
                             this.endStudy();
+                        }
+                        break;
+                }
+            }
+
+            // Global navigation hotkeys (only when not typing and no modal open)
+            if (!isTyping && !isModalOpen && !this.isHelpOpen()) {
+                switch(e.key.toLowerCase()) {
+                    case 'd':
+                        // Go to My Decks tab
+                        e.preventDefault();
+                        if (this.currentDeck) this.endStudy();
+                        this.switchTab('decks');
+                        break;
+                    case 'c':
+                    case 'n':
+                        // Go to Create Deck tab (c = create, n = new)
+                        e.preventDefault();
+                        if (this.currentDeck) this.endStudy();
+                        this.switchTab('create');
+                        this.deckName.focus();
+                        break;
+                    case 'f':
+                        // Create new folder
+                        e.preventDefault();
+                        if (this.currentDeck) this.endStudy();
+                        this.promptAddFolder();
+                        break;
+                    case 's':
+                        // Start studying (first deck or focused deck)
+                        e.preventDefault();
+                        if (!this.currentDeck && this.decks.length > 0) {
+                            this.startStudy(0);
+                        }
+                        break;
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                    case '9':
+                        // Quick study deck by number
+                        const deckIndex = parseInt(e.key) - 1;
+                        if (deckIndex < this.decks.length) {
+                            e.preventDefault();
+                            this.startStudy(deckIndex);
                         }
                         break;
                 }
@@ -793,7 +849,11 @@ class StudyFlowApp {
         this.announce('Study session ended.');
     }
 
-    // ===== Help Modal =====
+    // ===== Modal Helpers =====
+    isAppModalOpen() {
+        return this.modal && !this.modal.classList.contains('hidden');
+    }
+
     isHelpOpen() {
         return this.helpModal && this.helpModal.open === true;
     }
