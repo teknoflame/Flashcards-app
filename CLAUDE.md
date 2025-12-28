@@ -1,6 +1,6 @@
 # CLAUDE.md - AI Assistant Guide for Flashcards-app
 
-**Last Updated**: 2025-12-25
+**Last Updated**: 2025-12-28
 **Project**: StudyFlow Flashcards Application
 **Repository**: teknoflame/Flashcards-app
 
@@ -38,13 +38,23 @@
 3. **Progressive Enhancement**: Works on file://, enhanced with http://localhost
 4. **Simple & Maintainable**: Readable code over clever abstractions
 
+### Recent Architectural Changes (December 2024)
+
+**Embedded JavaScript Removal**:
+- ✅ **Removed**: All embedded JavaScript code from `index.html`
+- ✅ **Current**: Single external JavaScript reference: `<script src="app.js" defer></script>`
+- ✅ **Benefit**: Clean separation of concerns, better maintainability, improved caching
+- ⚠️ **Note**: Inline CSS still remains in `index.html` (can be refactored later)
+
+This change eliminates duplicate code and follows web development best practices for separating structure (HTML), presentation (CSS), and behavior (JavaScript).
+
 ---
 
 ## Codebase Structure
 
 ```
 Flashcards-app/
-├── index.html          # Main entry point (SPA shell + inline app initialization)
+├── index.html          # Main entry point (SPA shell, no embedded JavaScript)
 ├── app.js              # Core application logic (StudyFlowApp class + methods)
 ├── styles.css          # External stylesheet (extracted from inline styles)
 ├── server.js           # Node.js static file server (local development)
@@ -55,14 +65,13 @@ Flashcards-app/
 
 ### File Responsibilities
 
-#### `index.html` (2,755 lines)
+#### `index.html` (~540 lines)
 - **Purpose**: SPA shell and application structure
 - **Contents**:
   - HTML structure (tabs, forms, modals, dialogs)
-  - Inline styles (duplicate of styles.css for fallback)
-  - Duplicate StudyFlowApp class definition (inline script tag)
-  - External script reference to `app.js`
-- **Important**: Contains duplicate code for compatibility. Primary logic is in `app.js`
+  - Inline styles (CSS embedded in `<style>` tag)
+  - External script reference to `app.js` (no embedded JavaScript)
+- **Important**: All JavaScript logic is in external `app.js` file. Clean separation of concerns with no inline scripts.
 
 #### `app.js` (881 lines)
 - **Purpose**: Core application logic
@@ -292,8 +301,8 @@ python -m http.server 8000   # Alternative Python server
 ### File Editing Guidelines
 
 **When modifying `app.js`**:
-- Also update the inline `<script>` in `index.html` if critical
-- Both scripts must stay in sync for fallback compatibility
+- All JavaScript changes go in `app.js` only
+- No inline JavaScript in `index.html` - maintain separation of concerns
 
 **When modifying `styles.css`**:
 - Also update inline `<style>` in `index.html`
@@ -600,16 +609,6 @@ When implementing a new feature:
 - Check quota: `navigator.storage.estimate()`
 - Verify keys: `localStorage.getItem('studyflow-decks')`
 
-#### Issue: Duplicate app initialization
-
-**Symptom**: Event listeners fire twice, double announcements
-
-**Cause**: Both inline script and app.js initialize app
-
-**Solution**: Remove inline script initialization if app.js loads successfully
-- Inline script is fallback only
-- Check: `if (!window.app) { ... }` guard
-
 #### Issue: Focus not visible
 
 **Cause**: Custom focus styles override browser defaults
@@ -654,10 +653,10 @@ Based on codebase analysis, these areas could be improved:
    - Hot reload development server
 
 4. **Code Quality**:
-   - Extract duplicate code (inline vs app.js)
    - Split StudyFlowApp into smaller modules
    - Add JSDoc comments
    - Implement state management library (optional)
+   - Consider moving inline CSS to external stylesheet
 
 5. **Accessibility**:
    - Add high contrast theme
@@ -672,7 +671,7 @@ Based on codebase analysis, these areas could be improved:
 | File | Lines | Primary Purpose | Key Sections |
 |------|-------|-----------------|--------------|
 | `app.js` | 881 | Core logic | StudyFlowApp class (1-761), Modals (774-880) |
-| `index.html` | 1755 | UI structure | Tabs (342-461), Modals (465-520), Inline script (523-1751) |
+| `index.html` | ~540 | UI structure | Tabs (342-461), Modals (465-520), External JS ref (537) |
 | `styles.css` | 253 | Styling | Components (157-224), Modals (226-252) |
 | `server.js` | 72 | Dev server | Server setup (23-71) |
 | `package.json` | 11 | Metadata | Scripts (6-8) |
@@ -689,12 +688,13 @@ Based on codebase analysis, these areas could be improved:
 When contributing:
 1. Follow existing code style and patterns
 2. Test accessibility thoroughly
-3. Update both app.js and inline scripts if needed
+3. Keep JavaScript in `app.js` only (no inline scripts in HTML)
 4. Document non-obvious decisions
 5. Keep dependencies minimal (prefer vanilla JS)
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Created**: 2025-12-25
+**Last Revised**: 2025-12-28 (Removed embedded JavaScript references)
 **AI Assistant**: Claude (Anthropic)
