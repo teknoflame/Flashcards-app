@@ -16,6 +16,9 @@ function getContentType(filePath) {
     case '.jpg': case '.jpeg': return 'image/jpeg';
     case '.svg': return 'image/svg+xml';
     case '.ico': return 'image/x-icon';
+    case '.mp3': return 'audio/mpeg';
+    case '.wav': return 'audio/wav';
+    case '.ogg': return 'audio/ogg';
     default: return 'application/octet-stream';
   }
 }

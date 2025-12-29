@@ -1,6 +1,84 @@
+// Sound Manager for audio playback
+class SoundManager {
+    constructor() {
+        this.sounds = {};
+        this.muted = this.loadMutedState();
+        this.soundPaths = {
+            flip: 'sounds/flip.mp3',
+            enterStudy: 'sounds/enter-study.mp3',
+            exitStudy: 'sounds/exit-study.mp3',
+            correct: 'sounds/correct.mp3',
+            wrong: 'sounds/wrong.mp3'
+        };
+        this.preloadSounds();
+    }
+
+    loadMutedState() {
+        try {
+            const saved = localStorage.getItem('studyflow-sounds-muted');
+            return saved === 'true';
+        } catch (error) {
+            console.warn('Could not load sound preferences:', error);
+            return false;
+        }
+    }
+
+    saveMutedState() {
+        try {
+            localStorage.setItem('studyflow-sounds-muted', this.muted.toString());
+        } catch (error) {
+            console.warn('Could not save sound preferences:', error);
+        }
+    }
+
+    preloadSounds() {
+        for (const [key, path] of Object.entries(this.soundPaths)) {
+            const audio = new Audio();
+            audio.preload = 'auto';
+            audio.src = path;
+
+            // Handle loading errors gracefully
+            audio.addEventListener('error', () => {
+                console.warn(`Sound file not found: ${path}. Sound will be skipped.`);
+            });
+
+            this.sounds[key] = audio;
+        }
+    }
+
+    play(soundName) {
+        if (this.muted) return;
+
+        const audio = this.sounds[soundName];
+        if (!audio) {
+            console.warn(`Sound "${soundName}" not found.`);
+            return;
+        }
+
+        // Reset to beginning if already playing
+        audio.currentTime = 0;
+
+        // Play and handle errors
+        audio.play().catch(err => {
+            console.warn(`Could not play sound "${soundName}":`, err.message);
+        });
+    }
+
+    toggleMute() {
+        this.muted = !this.muted;
+        this.saveMutedState();
+        return this.muted;
+    }
+
+    isMuted() {
+        return this.muted;
+    }
+}
+
 // Simple StudyFlow App (extracted from index.html)
 class StudyFlowApp {
     constructor() {
+        this.soundManager = new SoundManager();
         this.decks = this.loadDecks();
         this.folders = this.loadFolders();
         this.folderExpandedState = this.loadFolderExpandedState();
@@ -13,6 +91,7 @@ class StudyFlowApp {
         this.setupEventListeners();
         this.populateFolderOptions(this.deckFolder);
         this.renderDecks();
+        this.updateMuteButton();
     }
 
     initializeElements() {
@@ -64,6 +143,9 @@ class StudyFlowApp {
         // Folder and generic app modal elements
         this.addFolderBtn = document.getElementById('add-folder-btn');
         this.appContainer = document.querySelector('.container');
+
+        // Sound control
+        this.muteToggleBtn = document.getElementById('mute-toggle-btn');
 
         // Generic modal elements (used for prompts/confirmations)
         this.modal = document.getElementById('app-modal');
@@ -214,6 +296,11 @@ class StudyFlowApp {
         if (this.addFolderBtn) {
             this.addFolderBtn.addEventListener('click', () => this.promptAddFolder());
         }
+
+        // Sound toggle
+        if (this.muteToggleBtn) {
+            this.muteToggleBtn.addEventListener('click', () => this.toggleMute());
+        }
     }
 
     announce(message) {
@@ -221,6 +308,19 @@ class StudyFlowApp {
         setTimeout(() => {
             this.announcements.textContent = '';
         }, 1000);
+    }
+
+    toggleMute() {
+        const isMuted = this.soundManager.toggleMute();
+        this.updateMuteButton();
+        this.announce(isMuted ? 'Sounds muted' : 'Sounds enabled');
+    }
+
+    updateMuteButton() {
+        if (!this.muteToggleBtn) return;
+        const isMuted = this.soundManager.isMuted();
+        this.muteToggleBtn.textContent = isMuted ? '🔇' : '🔊';
+        this.muteToggleBtn.setAttribute('aria-label', isMuted ? 'Unmute sounds' : 'Mute sounds');
     }
 
     switchTab(tabName) {
@@ -776,6 +876,7 @@ class StudyFlowApp {
     }
 
     startStudy(deckIndex) {
+        this.soundManager.play('enterStudy');
         this.currentDeck = this.decks[deckIndex];
         this.currentCardIndex = 0;
         this.showingFront = true;
@@ -813,6 +914,7 @@ class StudyFlowApp {
     flipCard() {
         if (!this.currentDeck) return;
 
+        this.soundManager.play('flip');
         this.showingFront = !this.showingFront;
         this.displayCurrentCard();
 
@@ -842,6 +944,7 @@ class StudyFlowApp {
     }
 
     endStudy() {
+        this.soundManager.play('exitStudy');
         this.currentDeck = null;
         this.switchTab('decks');
         this.studyModeContent.classList.add('hidden');
