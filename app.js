@@ -319,8 +319,18 @@ class StudyFlowApp {
     updateMuteButton() {
         if (!this.muteToggleBtn) return;
         const isMuted = this.soundManager.isMuted();
+        const wasActive = document.activeElement === this.muteToggleBtn;
+
         this.muteToggleBtn.textContent = isMuted ? '🔇' : '🔊';
         this.muteToggleBtn.setAttribute('aria-label', isMuted ? 'Unmute sounds' : 'Mute sounds');
+
+        // Force screen readers to re-announce by briefly removing and restoring focus
+        if (wasActive) {
+            this.muteToggleBtn.blur();
+            setTimeout(() => {
+                this.muteToggleBtn.focus();
+            }, 10);
+        }
     }
 
     switchTab(tabName) {
