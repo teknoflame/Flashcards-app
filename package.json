@@ -1,7 +1,7 @@
 {
-  "name": "flashcards-app",
+  "name": "sparkdeck",
   "version": "1.0.0",
-  "description": "Static Flashcards app with a lightweight HTTP server for local development",
+  "description": "SparkDeck - Static Flashcards app with a lightweight HTTP server for local development",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

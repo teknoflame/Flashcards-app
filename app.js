@@ -15,7 +15,7 @@ class SoundManager {
 
     loadMutedState() {
         try {
-            const saved = localStorage.getItem('studyflow-sounds-muted');
+            const saved = localStorage.getItem('sparkdeck-sounds-muted');
             return saved === 'true';
         } catch (error) {
             console.warn('Could not load sound preferences:', error);
@@ -25,7 +25,7 @@ class SoundManager {
 
     saveMutedState() {
         try {
-            localStorage.setItem('studyflow-sounds-muted', this.muted.toString());
+            localStorage.setItem('sparkdeck-sounds-muted', this.muted.toString());
         } catch (error) {
             console.warn('Could not save sound preferences:', error);
         }
@@ -75,10 +75,11 @@ class SoundManager {
     }
 }
 
-// Simple StudyFlow App (extracted from index.html)
-class StudyFlowApp {
+// Simple SparkDeck App (extracted from index.html)
+class SparkDeckApp {
     constructor() {
         this.soundManager = new SoundManager();
+        this.migrateOldLocalStorage(); // Migrate from old StudyFlow keys
         this.decks = this.loadDecks();
         this.folders = this.loadFolders();
         this.currentFolderId = null; // null = root view, folderId = viewing specific folder
@@ -92,6 +93,34 @@ class StudyFlowApp {
         this.populateFolderOptions(this.deckFolder);
         this.renderDecks();
         this.updateMuteButton();
+    }
+
+    // Migrate old StudyFlow localStorage keys to SparkDeck
+    migrateOldLocalStorage() {
+        try {
+            // Migrate decks
+            const oldDecks = localStorage.getItem('studyflow-decks');
+            if (oldDecks && !localStorage.getItem('sparkdeck-decks')) {
+                localStorage.setItem('sparkdeck-decks', oldDecks);
+                localStorage.removeItem('studyflow-decks');
+            }
+
+            // Migrate folders
+            const oldFolders = localStorage.getItem('studyflow-folders');
+            if (oldFolders && !localStorage.getItem('sparkdeck-folders')) {
+                localStorage.setItem('sparkdeck-folders', oldFolders);
+                localStorage.removeItem('studyflow-folders');
+            }
+
+            // Migrate sound preferences
+            const oldSoundsMuted = localStorage.getItem('studyflow-sounds-muted');
+            if (oldSoundsMuted && !localStorage.getItem('sparkdeck-sounds-muted')) {
+                localStorage.setItem('sparkdeck-sounds-muted', oldSoundsMuted);
+                localStorage.removeItem('studyflow-sounds-muted');
+            }
+        } catch (error) {
+            console.warn('Could not migrate old localStorage data:', error);
+        }
     }
 
     initializeElements() {
@@ -358,7 +387,7 @@ class StudyFlowApp {
 
     loadDecks() {
         try {
-            const saved = localStorage.getItem('studyflow-decks');
+            const saved = localStorage.getItem('sparkdeck-decks');
             return saved ? JSON.parse(saved) : [];
         } catch (error) {
             console.warn('Could not load decks:', error);
@@ -368,7 +397,7 @@ class StudyFlowApp {
 
     saveDecks() {
         try {
-            localStorage.setItem('studyflow-decks', JSON.stringify(this.decks));
+            localStorage.setItem('sparkdeck-decks', JSON.stringify(this.decks));
             return true;
         } catch (error) {
             console.warn('Could not save decks:', error);
@@ -379,7 +408,7 @@ class StudyFlowApp {
     // Folder persistence
     loadFolders() {
         try {
-            const saved = localStorage.getItem('studyflow-folders');
+            const saved = localStorage.getItem('sparkdeck-folders');
             let folders = saved ? JSON.parse(saved) : [];
             if (!Array.isArray(folders)) folders = [];
 
@@ -400,7 +429,7 @@ class StudyFlowApp {
 
     saveFolders() {
         try {
-            localStorage.setItem('studyflow-folders', JSON.stringify(this.folders));
+            localStorage.setItem('sparkdeck-folders', JSON.stringify(this.folders));
             return true;
         } catch (error) {
             console.warn('Could not save folders:', error);
@@ -594,7 +623,7 @@ class StudyFlowApp {
         if (this.decks.length === 0 && this.folders.length === 0) {
             this.decksList.innerHTML = `
                 <div class="empty-state">
-                    <h3>Welcome to StudyFlow!</h3>
+                    <h3>Welcome to SparkDeck!</h3>
                     <p>Create your first deck to get started studying.</p>
                     <button type="button" onclick="app.switchTab('create')">Create Your First Deck</button>
                 </div>
@@ -1265,11 +1294,11 @@ function switchTab(tabName) {
 // Initialize the app
 let app;
 document.addEventListener('DOMContentLoaded', () => {
-    app = new StudyFlowApp();
+    app = new SparkDeckApp();
 });
 
-// Modal helpers added to StudyFlowApp prototype
-StudyFlowApp.prototype.openTextModal = function({ title, label, initialValue = '', confirmText = 'Save', cancelText = 'Cancel' }) {
+// Modal helpers added to SparkDeckApp prototype
+SparkDeckApp.prototype.openTextModal = function({ title, label, initialValue = '', confirmText = 'Save', cancelText = 'Cancel' }) {
     return new Promise((resolve) => {
         const inputId = 'modal-text-input';
         this.modalTitle.textContent = title;
@@ -1300,7 +1329,7 @@ StudyFlowApp.prototype.openTextModal = function({ title, label, initialValue = '
     });
 };
 
-StudyFlowApp.prototype.openConfirmModal = function({ title, message, confirmText = 'OK', cancelText = 'Cancel' }) {
+SparkDeckApp.prototype.openConfirmModal = function({ title, message, confirmText = 'OK', cancelText = 'Cancel' }) {
     return new Promise((resolve) => {
         this.modalTitle.textContent = title;
         this.modalDesc.textContent = message;
@@ -1316,7 +1345,7 @@ StudyFlowApp.prototype.openConfirmModal = function({ title, message, confirmText
 };
 
 // Internal modal open/close with focus trap
-StudyFlowApp.prototype._openModalCommon = function({ initialFocus, onConfirm, onCancel }) {
+SparkDeckApp.prototype._openModalCommon = function({ initialFocus, onConfirm, onCancel }) {
     this._lastFocusedEl = document.activeElement;
     this.modal.classList.remove('hidden');
     this.modalOverlay.classList.remove('hidden');
@@ -1361,7 +1390,7 @@ StudyFlowApp.prototype._openModalCommon = function({ initialFocus, onConfirm, on
     };
 };
 
-StudyFlowApp.prototype._restoreModalClose = function() {
+SparkDeckApp.prototype._restoreModalClose = function() {
     this.modal.classList.add('hidden');
     this.modalOverlay.classList.add('hidden');
     this.modalOverlay.setAttribute('aria-hidden', 'true');
@@ -1372,6 +1401,6 @@ StudyFlowApp.prototype._restoreModalClose = function() {
 };
 
 // For backward compatibility
-StudyFlowApp.prototype._closeModal = function() {
+SparkDeckApp.prototype._closeModal = function() {
     this._restoreModalClose();
 };

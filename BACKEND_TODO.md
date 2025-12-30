@@ -1,4 +1,4 @@
-# Backend Integration TODO - StudyFlow
+# Backend Integration TODO - SparkDeck
 
 **Last Updated**: 2025-12-30
 **Status**: Planning Phase
@@ -19,7 +19,7 @@
 
 ### Data Structure (localStorage)
 
-**Folders** (`studyflow-folders`):
+**Folders** (`sparkdeck-folders`):
 ```javascript
 {
     id: "f_lx3k9p_abc123",              // String (generated)
@@ -29,7 +29,7 @@
 }
 ```
 
-**Decks** (`studyflow-decks`):
+**Decks** (`sparkdeck-decks`):
 ```javascript
 {
     name: "Biology Chapter 5",           // String
@@ -49,7 +49,7 @@
 }
 ```
 
-**Settings** (`studyflow-sounds-muted`):
+**Settings** (`sparkdeck-sounds-muted`):
 ```javascript
 "true" | "false"  // String boolean
 ```
@@ -62,7 +62,7 @@
 
 ```
 ┌─────────────────────────────────────┐
-│   StudyFlow Web App (Netlify)       │
+│   SparkDeck Web App (Netlify)       │
 │   - Next.js (SSR/SSG)                │
 │   - React Components                 │
 │   - Client-side routing              │
@@ -288,16 +288,16 @@ exports.handler = async (event, context) => {
 
 1. **Create Auth0 Application**
    - Application Type: Single Page Application
-   - Allowed Callback URLs: `http://localhost:3000/callback, https://studyflow.netlify.app/callback`
-   - Allowed Logout URLs: `http://localhost:3000, https://studyflow.netlify.app`
-   - Allowed Web Origins: `http://localhost:3000, https://studyflow.netlify.app`
+   - Allowed Callback URLs: `http://localhost:3000/callback, https://sparkdeck.netlify.app/callback`
+   - Allowed Logout URLs: `http://localhost:3000, https://sparkdeck.netlify.app`
+   - Allowed Web Origins: `http://localhost:3000, https://sparkdeck.netlify.app`
 
 2. **Environment Variables** (Netlify)
    ```
    AUTH0_DOMAIN=your-tenant.auth0.com
    AUTH0_CLIENT_ID=your_client_id
    AUTH0_CLIENT_SECRET=your_client_secret
-   DATABASE_URL=postgresql://user:pass@neon-host/studyflow
+   DATABASE_URL=postgresql://user:pass@neon-host/sparkdeck
    ```
 
 3. **Install SDK**
@@ -376,7 +376,7 @@ class DataManager {
                 const data = await response.json();
 
                 // Cache in localStorage for offline
-                localStorage.setItem('studyflow-folders', JSON.stringify(data.folders));
+                localStorage.setItem('sparkdeck-folders', JSON.stringify(data.folders));
                 return data.folders;
             } catch (error) {
                 // Fallback to localStorage if network fails
@@ -391,7 +391,7 @@ class DataManager {
 
     async saveFolders(folders) {
         // Always save to localStorage first (instant)
-        localStorage.setItem('studyflow-folders', JSON.stringify(folders));
+        localStorage.setItem('sparkdeck-folders', JSON.stringify(folders));
 
         // If authenticated, sync to backend
         if (this.useBackend) {
@@ -448,9 +448,9 @@ class DataManager {
 **4. Meta Tags (Dynamic)**
 ```javascript
 <Head>
-    <title>{folder.name} - StudyFlow</title>
+    <title>{folder.name} - SparkDeck</title>
     <meta name="description" content={`Study ${deck.cards.length} flashcards in ${folder.name}`} />
-    <meta property="og:title" content={`${folder.name} - StudyFlow`} />
+    <meta property="og:title" content={`${folder.name} - SparkDeck`} />
 </Head>
 ```
 
@@ -477,10 +477,10 @@ class DataManager {
   port = 8888
 
 [context.production.environment]
-  NEXT_PUBLIC_API_URL = "https://studyflow.netlify.app"
+  NEXT_PUBLIC_API_URL = "https://sparkdeck.netlify.app"
 
 [context.deploy-preview.environment]
-  NEXT_PUBLIC_API_URL = "https://deploy-preview-$DEPLOY_ID--studyflow.netlify.app"
+  NEXT_PUBLIC_API_URL = "https://deploy-preview-$DEPLOY_ID--sparkdeck.netlify.app"
 ```
 
 ---
@@ -498,7 +498,7 @@ class DataManager {
 ```swift
 let token = await Auth0.credentials().accessToken
 
-let url = URL(string: "https://studyflow.netlify.app/api/folders")!
+let url = URL(string: "https://sparkdeck.netlify.app/api/folders")!
 var request = URLRequest(url: url)
 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
@@ -530,7 +530,7 @@ let folders = try JSONDecoder().decode([Folder].self, from: data)
 - ✅ Social + database authentication
 - ✅ Multifactor authentication
 
-**Conclusion**: Free tiers are MORE than enough for StudyFlow! 🎉
+**Conclusion**: Free tiers are MORE than enough for SparkDeck! 🎉
 
 ---
 

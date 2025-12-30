@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Flashcards-app
 
-**Last Updated**: 2025-12-25
-**Project**: StudyFlow Flashcards Application
+**Last Updated**: 2025-12-30
+**Project**: SparkDeck Flashcards Application
 **Repository**: teknoflame/Flashcards-app
 
 ## Table of Contents
@@ -21,12 +21,12 @@
 
 ## Project Overview
 
-**StudyFlow** is a client-side flashcard application designed for creating, organizing, and studying flashcards with a strong emphasis on accessibility and user experience.
+**SparkDeck** is a client-side flashcard application designed for creating, organizing, and studying flashcards with a strong emphasis on accessibility and user experience.
 
 ### Tech Stack
 
 - **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3
-- **Architecture**: Class-based OOP (StudyFlowApp)
+- **Architecture**: Class-based OOP (SparkDeckApp)
 - **Storage**: localStorage (browser-based persistence)
 - **Server**: Node.js static file server (development only)
 - **External APIs**: YouTube IFrame API (for video embeds)
@@ -45,7 +45,7 @@
 ```
 Flashcards-app/
 ├── index.html          # Main entry point (SPA shell + inline app initialization)
-├── app.js              # Core application logic (StudyFlowApp class + methods)
+├── app.js              # Core application logic (SparkDeckApp class + methods)
 ├── styles.css          # External stylesheet (extracted from inline styles)
 ├── server.js           # Node.js static file server (local development)
 ├── package.json        # Node project metadata (minimal, no dependencies)
@@ -60,18 +60,18 @@ Flashcards-app/
 - **Contents**:
   - HTML structure (tabs, forms, modals, dialogs)
   - Inline styles (duplicate of styles.css for fallback)
-  - Duplicate StudyFlowApp class definition (inline script tag)
+  - Duplicate SparkDeckApp class definition (inline script tag)
   - External script reference to `app.js`
 - **Important**: Contains duplicate code for compatibility. Primary logic is in `app.js`
 
 #### `app.js` (881 lines)
 - **Purpose**: Core application logic
 - **Contents**:
-  - `StudyFlowApp` class (lines 1-761)
+  - `SparkDeckApp` class (lines 1-761)
   - Global helper functions (lines 763-766)
   - App initialization (lines 768-772)
   - Modal helper methods (lines 774-880)
-- **Key Classes**: `StudyFlowApp` (singleton pattern)
+- **Key Classes**: `SparkDeckApp` (singleton pattern)
 - **External Dependencies**: None (except YouTube IFrame API loaded dynamically)
 
 #### `styles.css` (253 lines)
@@ -99,10 +99,10 @@ Flashcards-app/
 
 ### Class-Based Architecture
 
-The entire application is encapsulated in a single `StudyFlowApp` class:
+The entire application is encapsulated in a single `SparkDeckApp` class:
 
 ```javascript
-class StudyFlowApp {
+class SparkDeckApp {
     constructor() {
         this.decks = this.loadDecks();           // Array of deck objects
         this.folders = this.loadFolders();       // Array of folder objects
@@ -150,9 +150,9 @@ class StudyFlowApp {
 ### State Management
 
 - **Persistence**: localStorage (synchronous)
-  - Key `studyflow-decks`: JSON array of decks
-  - Key `studyflow-folders`: JSON array of folders
-- **State Location**: All state in `StudyFlowApp` instance properties
+  - Key `sparkdeck-decks`: JSON array of decks
+  - Key `sparkdeck-folders`: JSON array of folders
+- **State Location**: All state in `SparkDeckApp` instance properties
 - **State Updates**: Direct mutation + localStorage sync
 - **No State Library**: Vanilla JS, manual state management
 
@@ -248,7 +248,7 @@ class StudyFlowApp {
 - Merge commits for feature integration
 - Examples from history:
   - `"Add media embedding support for flashcards"`
-  - `"Move StudyFlow app logic to app.js"`
+  - `"Move SparkDeck app logic to app.js"`
   - `"Improve YouTube embed reliability and add local server"`
 
 **Typical Workflow**:
@@ -314,7 +314,7 @@ python -m http.server 8000   # Alternative Python server
 ### JavaScript Style
 
 **Naming Conventions**:
-- Classes: PascalCase (`StudyFlowApp`)
+- Classes: PascalCase (`SparkDeckApp`)
 - Methods: camelCase (`loadDecks`, `renderDecks`)
 - Private methods: Prefix with `_` (`_openModalCommon`, `_restoreModalClose`)
 - Constants: UPPER_SNAKE_CASE (rare, mostly inline values)
@@ -598,7 +598,7 @@ When implementing a new feature:
 **Solution**:
 - Implement export/import feature (future enhancement)
 - Check quota: `navigator.storage.estimate()`
-- Verify keys: `localStorage.getItem('studyflow-decks')`
+- Verify keys: `localStorage.getItem('sparkdeck-decks')`
 
 #### Issue: Duplicate app initialization
 
@@ -655,7 +655,7 @@ Based on codebase analysis, these areas could be improved:
 
 4. **Code Quality**:
    - Extract duplicate code (inline vs app.js)
-   - Split StudyFlowApp into smaller modules
+   - Split SparkDeckApp into smaller modules
    - Add JSDoc comments
    - Implement state management library (optional)
 
@@ -671,7 +671,7 @@ Based on codebase analysis, these areas could be improved:
 
 | File | Lines | Primary Purpose | Key Sections |
 |------|-------|-----------------|--------------|
-| `app.js` | 881 | Core logic | StudyFlowApp class (1-761), Modals (774-880) |
+| `app.js` | 881 | Core logic | SparkDeckApp class (1-761), Modals (774-880) |
 | `index.html` | 1755 | UI structure | Tabs (342-461), Modals (465-520), Inline script (523-1751) |
 | `styles.css` | 253 | Styling | Components (157-224), Modals (226-252) |
 | `server.js` | 72 | Dev server | Server setup (23-71) |

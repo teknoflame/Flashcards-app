@@ -1,6 +1,6 @@
-# StudyFlow Accessibility Enhancement Roadmap
+# SparkDeck Accessibility Enhancement Roadmap
 
-**Goal**: Make StudyFlow the most accessible flashcard application, surpassing Quizlet and other competitors.
+**Goal**: Make SparkDeck the most accessible flashcard application, surpassing Quizlet and other competitors.
 
 **Target**: WCAG 2.1 AAA compliance for screen reader and low vision users.
 
@@ -36,11 +36,11 @@ Your app already has an excellent foundation:
 
 **Implementation**:
 ```javascript
-// Add to StudyFlowApp class
+// Add to SparkDeckApp class
 toggleHighContrast() {
     document.body.classList.toggle('high-contrast');
     const enabled = document.body.classList.contains('high-contrast');
-    localStorage.setItem('studyflow-high-contrast', enabled);
+    localStorage.setItem('sparkdeck-high-contrast', enabled);
     this.announce(enabled ? 'High contrast mode enabled' : 'High contrast mode disabled');
 }
 ```
@@ -102,7 +102,7 @@ body.high-contrast select:focus {
 
 **Implementation**:
 ```javascript
-// Add to StudyFlowApp class
+// Add to SparkDeckApp class
 changeFontSize(size) {
     // size: 'small', 'medium', 'large', 'xlarge'
     const sizes = {
@@ -113,7 +113,7 @@ changeFontSize(size) {
     };
 
     document.documentElement.style.setProperty('--base-font-size', sizes[size]);
-    localStorage.setItem('studyflow-font-size', size);
+    localStorage.setItem('sparkdeck-font-size', size);
     this.announce(`Font size set to ${size}`);
 }
 ```
@@ -250,11 +250,11 @@ nextCard() {
 
 **Implementation**:
 ```javascript
-// Add TTS functionality to StudyFlowApp
+// Add TTS functionality to SparkDeckApp
 initializeTTS() {
-    this.ttsEnabled = localStorage.getItem('studyflow-tts-enabled') === 'true';
+    this.ttsEnabled = localStorage.getItem('sparkdeck-tts-enabled') === 'true';
     this.ttsVoice = null;
-    this.ttsRate = parseFloat(localStorage.getItem('studyflow-tts-rate')) || 1.0;
+    this.ttsRate = parseFloat(localStorage.getItem('sparkdeck-tts-rate')) || 1.0;
 
     if ('speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = () => {
@@ -266,14 +266,14 @@ initializeTTS() {
 
 toggleTTS() {
     this.ttsEnabled = !this.ttsEnabled;
-    localStorage.setItem('studyflow-tts-enabled', this.ttsEnabled);
+    localStorage.setItem('sparkdeck-tts-enabled', this.ttsEnabled);
     this.announce(this.ttsEnabled ? 'Text to speech enabled' : 'Text to speech disabled');
 }
 
 setTTSRate(rate) {
     // rate: 0.5, 0.75, 1.0, 1.25, 1.5
     this.ttsRate = rate;
-    localStorage.setItem('studyflow-tts-rate', rate);
+    localStorage.setItem('sparkdeck-tts-rate', rate);
     this.announce(`Speech rate set to ${rate}x`);
 }
 
@@ -387,7 +387,7 @@ button:disabled {
 
     <div class="container">
         <header role="banner">
-            <h1>StudyFlow</h1>
+            <h1>SparkDeck</h1>
             <!-- ... -->
         </header>
 
@@ -433,7 +433,7 @@ button:disabled {
 toggleDarkMode() {
     document.body.classList.toggle('dark-mode');
     const enabled = document.body.classList.contains('dark-mode');
-    localStorage.setItem('studyflow-dark-mode', enabled);
+    localStorage.setItem('sparkdeck-dark-mode', enabled);
     this.announce(enabled ? 'Dark mode enabled' : 'Dark mode disabled');
 }
 ```
@@ -493,7 +493,7 @@ body.dark-mode button {
 setAnnouncementVerbosity(level) {
     // level: 'minimal', 'standard', 'verbose'
     this.announcementVerbosity = level;
-    localStorage.setItem('studyflow-announcement-verbosity', level);
+    localStorage.setItem('sparkdeck-announcement-verbosity', level);
 }
 
 announce(message, context = {}) {
@@ -528,7 +528,7 @@ customizeShortcut(action, keys) {
     // action: 'flip', 'next', 'previous', 'endStudy'
     // keys: { key: 'Space', ctrl: false, shift: false, alt: false }
     this.shortcuts[action] = keys;
-    localStorage.setItem('studyflow-shortcuts', JSON.stringify(this.shortcuts));
+    localStorage.setItem('sparkdeck-shortcuts', JSON.stringify(this.shortcuts));
     this.announce(`Shortcut for ${action} updated`);
 }
 ```
@@ -590,7 +590,7 @@ customizeShortcut(action, keys) {
 ```markdown
 ## Accessibility Statement
 
-StudyFlow is committed to providing an accessible learning experience for all users.
+SparkDeck is committed to providing an accessible learning experience for all users.
 
 ### Features for Screen Reader Users:
 - Full ARIA support with descriptive labels

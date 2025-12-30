@@ -1,4 +1,4 @@
-# StudyFlow Features Roadmap
+# SparkDeck Features Roadmap
 
 **Last Updated**: 2025-12-30
 **Status**: All features designed for localhost:8000 with easy backend migration
@@ -264,7 +264,7 @@ Yesterday, 9:30 AM
 }
 ```
 
-**localStorage**: `studyflow-theme: "dark"`
+**localStorage**: `sparkdeck-theme: "dark"`
 
 **Accessibility**: Respect `prefers-color-scheme` media query
 
@@ -416,7 +416,7 @@ Create Folder:   F    [Change]
 ...
 ```
 
-**localStorage**: `studyflow-shortcuts: { decks: 'D', create: 'C' }`
+**localStorage**: `sparkdeck-shortcuts: { decks: 'D', create: 'C' }`
 
 ---
 
@@ -509,7 +509,7 @@ Create Folder:   F    [Change]
 
 **Good Claude Code prompt**:
 ```
-Hi Claude! I want to add [FEATURE NAME] to StudyFlow.
+Hi Claude! I want to add [FEATURE NAME] to SparkDeck.
 
 Context:
 - We're building with vanilla JavaScript + localStorage
@@ -550,7 +550,7 @@ When Taylor has backend ready, migration is easy:
 ```javascript
 saveDeck(deck) {
     this.decks.push(deck);
-    localStorage.setItem('studyflow-decks', JSON.stringify(this.decks));
+    localStorage.setItem('sparkdeck-decks', JSON.stringify(this.decks));
 }
 ```
 
@@ -566,7 +566,7 @@ async saveDeck(deck) {
 
     // Still cache locally for offline mode
     this.decks.push(savedDeck);
-    localStorage.setItem('studyflow-decks', JSON.stringify(this.decks));
+    localStorage.setItem('sparkdeck-decks', JSON.stringify(this.decks));
 }
 ```
 
