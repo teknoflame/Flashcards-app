@@ -81,7 +81,7 @@ class StudyFlowApp {
         this.soundManager = new SoundManager();
         this.decks = this.loadDecks();
         this.folders = this.loadFolders();
-        this.folderExpandedState = this.loadFolderExpandedState();
+        this.currentFolderId = null; // null = root view, folderId = viewing specific folder
         this.currentDeck = null;
         this.currentCardIndex = 0;
         this.showingFront = true;
@@ -235,6 +235,13 @@ class StudyFlowApp {
                         e.preventDefault();
                         if (this.currentDeck) this.endStudy();
                         this.switchTab('decks');
+                        break;
+                    case 'h':
+                        // Go to Home (root folder view)
+                        if (this.currentFolderId) {
+                            e.preventDefault();
+                            this.navigateToHome();
+                        }
                         break;
                     case 'c':
                     case 'n':
@@ -391,24 +398,20 @@ class StudyFlowApp {
         }
     }
 
-    loadFolderExpandedState() {
-        try {
-            const saved = localStorage.getItem('studyflow-folder-expanded');
-            return saved ? JSON.parse(saved) : {};
-        } catch (error) {
-            console.warn('Could not load folder expanded state:', error);
-            return {};
+    // Navigation methods for drill-down UI
+    navigateToFolder(folderId) {
+        this.currentFolderId = folderId;
+        this.renderDecks();
+        const folder = this.folders.find(f => f.id === folderId);
+        if (folder) {
+            this.announce(`Viewing folder: ${folder.name}`);
         }
     }
 
-    saveFolderExpandedState() {
-        try {
-            localStorage.setItem('studyflow-folder-expanded', JSON.stringify(this.folderExpandedState));
-            return true;
-        } catch (error) {
-            console.warn('Could not save folder expanded state:', error);
-            return false;
-        }
+    navigateToHome() {
+        this.currentFolderId = null;
+        this.renderDecks();
+        this.announce('Viewing all folders');
     }
 
     generateFolderId() {
@@ -519,29 +522,20 @@ class StudyFlowApp {
         if (!confirmDelete) return;
         this.decks.forEach(d => { if (d.folderId === folderId) d.folderId = null; });
         this.folders = this.folders.filter(f => f.id !== folderId);
-        delete this.folderExpandedState[folderId];
+        // Navigate back to home if we're viewing the deleted folder
+        if (this.currentFolderId === folderId) {
+            this.currentFolderId = null;
+        }
         this.saveFolders();
         this.saveDecks();
-        this.saveFolderExpandedState();
         this.populateFolderOptions(this.deckFolder, this.deckFolder.value === folderId ? '' : this.deckFolder.value);
         this.renderDecks();
         this.announce('Folder deleted and decks moved to (No folder).');
     }
 
-    toggleFolder(folderId) {
-        const isExpanded = this.folderExpandedState[folderId] || false;
-        this.folderExpandedState[folderId] = !isExpanded;
-        this.saveFolderExpandedState();
-        this.renderDecks();
-        const folder = this.folders.find(f => f.id === folderId);
-        if (folder) {
-            const newState = this.folderExpandedState[folderId] ? 'expanded' : 'collapsed';
-            this.announce(`Folder "${folder.name}" ${newState}.`);
-        }
-    }
 
     renderDecks() {
-        if (this.decks.length === 0) {
+        if (this.decks.length === 0 && this.folders.length === 0) {
             this.decksList.innerHTML = `
                 <div class="empty-state">
                     <h3>Welcome to StudyFlow!</h3>
@@ -554,6 +548,9 @@ class StudyFlowApp {
 
         this.decksList.innerHTML = '';
 
+        // Render breadcrumb navigation
+        this.renderBreadcrumb();
+
         // Group decks by folder
         const groups = new Map();
         this.decks.forEach((deck, idx) => {
@@ -564,7 +561,42 @@ class StudyFlowApp {
 
         const foldersSorted = [...this.folders].sort((a, b) => a.name.localeCompare(b.name));
 
-        // Render Folders section if there are any folders
+        // If we're viewing a specific folder, show only that folder's decks
+        if (this.currentFolderId) {
+            const folder = this.folders.find(f => f.id === this.currentFolderId);
+            if (folder) {
+                const folderDecks = groups.get(this.currentFolderId) || [];
+
+                if (folderDecks.length === 0) {
+                    const emptyMsg = document.createElement('div');
+                    emptyMsg.className = 'empty-state';
+                    emptyMsg.innerHTML = `
+                        <p>This folder is empty.</p>
+                        <button type="button" onclick="app.switchTab('create')">Create a Deck</button>
+                    `;
+                    this.decksList.appendChild(emptyMsg);
+                } else {
+                    const decksSection = document.createElement('section');
+                    decksSection.className = 'folder-decks-section';
+                    decksSection.setAttribute('aria-labelledby', 'current-folder-heading');
+
+                    const heading = document.createElement('h3');
+                    heading.id = 'current-folder-heading';
+                    heading.textContent = `${folder.name} (${folderDecks.length} ${folderDecks.length === 1 ? 'deck' : 'decks'})`;
+                    decksSection.appendChild(heading);
+
+                    folderDecks.forEach(deckIndex => {
+                        const deckEl = this.createDeckCard(deckIndex);
+                        decksSection.appendChild(deckEl);
+                    });
+
+                    this.decksList.appendChild(decksSection);
+                }
+            }
+            return;
+        }
+
+        // Root view: Show all folders as clickable cards + unorganized decks
         if (foldersSorted.length > 0) {
             const foldersSection = document.createElement('section');
             foldersSection.className = 'folders-section';
@@ -578,50 +610,10 @@ class StudyFlowApp {
             foldersSorted.forEach(folder => {
                 const folderId = folder.id;
                 const folderDecks = groups.get(folderId) || [];
-                const isExpanded = this.folderExpandedState[folderId] || false;
                 const deckCount = folderDecks.length;
-                const decksContentId = `folder-content-${folderId}`;
 
-                const folderContainer = document.createElement('div');
-                folderContainer.className = 'folder-container';
-
-                // Folder toggle button
-                const folderButton = document.createElement('button');
-                folderButton.type = 'button';
-                folderButton.className = 'folder-toggle';
-                folderButton.setAttribute('aria-expanded', isExpanded.toString());
-                folderButton.setAttribute('aria-controls', decksContentId);
-                folderButton.innerHTML = `<span class="folder-icon">${isExpanded ? '▼' : '▶'}</span> ${folder.name} <span class="folder-count">(${deckCount} ${deckCount === 1 ? 'deck' : 'decks'})</span>`;
-                folderButton.onclick = () => this.toggleFolder(folderId);
-
-                folderContainer.appendChild(folderButton);
-
-                // Folder actions (rename/delete)
-                const folderActions = document.createElement('div');
-                folderActions.className = 'folder-actions';
-                folderActions.innerHTML = `
-                    <button type="button" onclick="app.renameFolder('${folderId}')" aria-label="Rename folder ${folder.name}">Rename</button>
-                    <button type="button" onclick="app.deleteFolder('${folderId}')" aria-label="Delete folder ${folder.name}">Delete</button>
-                `;
-                folderContainer.appendChild(folderActions);
-
-                // Decks content (only shown when expanded)
-                if (isExpanded && folderDecks.length > 0) {
-                    const decksContent = document.createElement('div');
-                    decksContent.id = decksContentId;
-                    decksContent.className = 'folder-decks-content';
-                    decksContent.setAttribute('role', 'region');
-                    decksContent.setAttribute('aria-label', `Decks in ${folder.name}`);
-
-                    folderDecks.forEach(deckIndex => {
-                        const deckEl = this.createDeckCard(deckIndex);
-                        decksContent.appendChild(deckEl);
-                    });
-
-                    folderContainer.appendChild(decksContent);
-                }
-
-                foldersSection.appendChild(folderContainer);
+                const folderCard = this.createFolderCard(folder, deckCount);
+                foldersSection.appendChild(folderCard);
             });
 
             this.decksList.appendChild(foldersSection);
@@ -646,6 +638,88 @@ class StudyFlowApp {
 
             this.decksList.appendChild(myDecksSection);
         }
+    }
+
+    renderBreadcrumb() {
+        const breadcrumbNav = document.createElement('nav');
+        breadcrumbNav.setAttribute('aria-label', 'Breadcrumb');
+        breadcrumbNav.className = 'breadcrumb-nav';
+
+        const breadcrumbList = document.createElement('ol');
+        breadcrumbList.className = 'breadcrumb';
+
+        // Home link
+        const homeItem = document.createElement('li');
+        homeItem.className = 'breadcrumb-item';
+
+        if (this.currentFolderId) {
+            const homeLink = document.createElement('button');
+            homeLink.type = 'button';
+            homeLink.className = 'breadcrumb-link';
+            homeLink.textContent = 'Home';
+            homeLink.setAttribute('aria-label', 'Navigate to home');
+            homeLink.onclick = () => this.navigateToHome();
+            homeItem.appendChild(homeLink);
+        } else {
+            homeItem.textContent = 'Home';
+            homeItem.setAttribute('aria-current', 'page');
+        }
+
+        breadcrumbList.appendChild(homeItem);
+
+        // Current folder (if any)
+        if (this.currentFolderId) {
+            const folder = this.folders.find(f => f.id === this.currentFolderId);
+            if (folder) {
+                const separator = document.createElement('li');
+                separator.className = 'breadcrumb-separator';
+                separator.setAttribute('aria-hidden', 'true');
+                separator.textContent = '›';
+                breadcrumbList.appendChild(separator);
+
+                const folderItem = document.createElement('li');
+                folderItem.className = 'breadcrumb-item';
+                folderItem.textContent = folder.name;
+                folderItem.setAttribute('aria-current', 'page');
+                breadcrumbList.appendChild(folderItem);
+            }
+        }
+
+        breadcrumbNav.appendChild(breadcrumbList);
+        this.decksList.appendChild(breadcrumbNav);
+    }
+
+    createFolderCard(folder, deckCount) {
+        const folderCard = document.createElement('article');
+        folderCard.className = 'folder-card';
+        folderCard.setAttribute('aria-labelledby', `folder-title-${folder.id}`);
+
+        const folderButton = document.createElement('button');
+        folderButton.type = 'button';
+        folderButton.className = 'folder-card-button';
+        folderButton.setAttribute('aria-label', `Open folder ${folder.name}, ${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}`);
+        folderButton.onclick = () => this.navigateToFolder(folder.id);
+
+        folderButton.innerHTML = `
+            <div class="folder-card-icon">📁</div>
+            <div class="folder-card-content">
+                <h4 id="folder-title-${folder.id}" class="folder-card-title">${folder.name}</h4>
+                <p class="folder-card-count">${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}</p>
+            </div>
+        `;
+
+        folderCard.appendChild(folderButton);
+
+        // Folder actions (rename/delete)
+        const folderActions = document.createElement('div');
+        folderActions.className = 'folder-actions';
+        folderActions.innerHTML = `
+            <button type="button" onclick="app.renameFolder('${folder.id}')" aria-label="Rename folder ${folder.name}">Rename</button>
+            <button type="button" onclick="app.deleteFolder('${folder.id}')" aria-label="Delete folder ${folder.name}">Delete</button>
+        `;
+        folderCard.appendChild(folderActions);
+
+        return folderCard;
     }
 
     createDeckCard(deckIndex) {

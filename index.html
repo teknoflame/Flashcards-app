@@ -324,6 +324,153 @@
             width: 100%;
             max-width: 100%;
         }
+
+        /* Breadcrumb navigation */
+        .breadcrumb-nav {
+            margin-bottom: 20px;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            list-style: none;
+            padding: 10px 0;
+            margin: 0;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-item {
+            font-size: 16px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .breadcrumb-item[aria-current="page"] {
+            color: #6c757d;
+        }
+
+        .breadcrumb-link {
+            background: none;
+            border: none;
+            padding: 4px 8px;
+            color: #3498db;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            text-decoration: underline;
+            width: auto;
+            transition: all 0.2s;
+        }
+
+        .breadcrumb-link:hover, .breadcrumb-link:focus {
+            color: #2980b9;
+            background: rgba(52, 152, 219, 0.1);
+            border-radius: 4px;
+            outline: 2px solid #3498db;
+            outline-offset: 2px;
+        }
+
+        .breadcrumb-separator {
+            margin: 0 8px;
+            color: #6c757d;
+            font-size: 16px;
+            list-style: none;
+        }
+
+        /* Folder card styles (drill-down UI) */
+        .folders-section, .my-decks-section, .folder-decks-section {
+            margin-bottom: 30px;
+        }
+
+        .folders-section h3, .my-decks-section h3, .folder-decks-section h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+
+        .folder-card {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            padding: 15px;
+            transition: all 0.2s;
+        }
+
+        .folder-card:hover {
+            border-color: #3498db;
+            background: #e3f2fd;
+        }
+
+        .folder-card-button {
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            border: none;
+            padding: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.2s;
+        }
+
+        .folder-card-button:hover, .folder-card-button:focus {
+            background: rgba(52, 152, 219, 0.1);
+            border-radius: 4px;
+            outline: 2px solid #3498db;
+            outline-offset: 2px;
+        }
+
+        .folder-card-icon {
+            font-size: 48px;
+            line-height: 1;
+        }
+
+        .folder-card-content {
+            flex: 1;
+        }
+
+        .folder-card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .folder-card-count {
+            font-size: 14px;
+            color: #6c757d;
+            margin: 0;
+        }
+
+        .folder-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .folder-actions button {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 14px;
+            background: transparent;
+            color: #3498db;
+            border: 2px solid #3498db;
+        }
+
+        .folder-actions button:hover, .folder-actions button:focus {
+            background: #3498db;
+            color: white;
+        }
+
+        .my-decks-section .deck-card {
+            background: #fff;
+        }
 </style>
 </head>
 <body>
