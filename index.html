@@ -509,8 +509,12 @@
             <!-- Decks Tab -->
             <section class="tab-content active" id="decks-tab" role="tabpanel">
                 <h2>Your Study Decks</h2>
-                <div class="section" aria-label="Folder actions">
-                    <button id="add-folder-btn" type="button">Add Folder</button>
+                <div class="section" aria-label="Deck and folder actions">
+                    <div class="button-group">
+                        <button id="add-folder-btn" type="button">Add Folder</button>
+                        <button id="import-btn" type="button" onclick="app.triggerImport()">Import</button>
+                        <button id="export-all-btn" type="button" onclick="app.exportAllData()">Export All</button>
+                    </div>
                 </div>
                 <div id="decks-list">
                     <div class="empty-state">
@@ -634,6 +638,13 @@ Mitochondria are the powerhouses of the cell."></textarea>
 
                 <h2>Overview</h2>
                 <p>SparkDeck lets you create flashcard decks, generate cards from notes, and study them with accessible controls and progress tracking.</p>
+
+                <h2>Import &amp; Export</h2>
+                <ul>
+                    <li><strong>Export Deck:</strong> Click "Export" on any deck to download it as a JSON file.</li>
+                    <li><strong>Export All:</strong> Click "Export All" to backup all decks and folders.</li>
+                    <li><strong>Import:</strong> Click "Import" to load decks from a SparkDeck JSON file.</li>
+                </ul>
 
                 <h2>Keyboard Shortcuts</h2>
                 <h3>Navigation</h3>

@@ -921,7 +921,8 @@ class SparkDeckApp {
                 </select>
             </div>
             <div class="button-group deck-actions">
-                <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study This Deck</button>
+                <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study</button>
+                <button type="button" onclick="app.exportDeck(${deckIndex})" aria-label="Export deck ${deck.name}">Export</button>
                 <button type="button" onclick="app.deleteDeck(${deckIndex})" aria-label="Delete deck ${deck.name}">Delete</button>
             </div>
         `;
@@ -1403,4 +1404,263 @@ SparkDeckApp.prototype._restoreModalClose = function() {
 // For backward compatibility
 SparkDeckApp.prototype._closeModal = function() {
     this._restoreModalClose();
+};
+
+// ===== Import/Export Methods =====
+
+// Export a single deck as JSON file
+SparkDeckApp.prototype.exportDeck = function(deckIndex) {
+    const deck = this.decks[deckIndex];
+    if (!deck) {
+        this.announce('Deck not found.');
+        return;
+    }
+
+    const exportData = {
+        version: '1.0',
+        type: 'deck',
+        exportedAt: new Date().toISOString(),
+        deck: {
+            name: deck.name,
+            category: deck.category,
+            cards: deck.cards,
+            created: deck.created
+        }
+    };
+
+    const filename = `${deck.name.replace(/[^a-z0-9]/gi, '-')}.json`;
+    this._downloadJSON(exportData, filename);
+    this.announce(`Deck "${deck.name}" exported successfully.`);
+};
+
+// Export all data (decks + folders) as JSON file
+SparkDeckApp.prototype.exportAllData = function() {
+    if (this.decks.length === 0 && this.folders.length === 0) {
+        this.announce('No data to export.');
+        return;
+    }
+
+    const exportData = {
+        version: '1.0',
+        type: 'backup',
+        exportedAt: new Date().toISOString(),
+        decks: this.decks.map(deck => ({
+            name: deck.name,
+            category: deck.category,
+            folderId: deck.folderId,
+            cards: deck.cards,
+            created: deck.created
+        })),
+        folders: this.folders.map(folder => ({
+            id: folder.id,
+            name: folder.name,
+            parentFolderId: folder.parentFolderId,
+            created: folder.created
+        }))
+    };
+
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `sparkdeck-backup-${date}.json`;
+    this._downloadJSON(exportData, filename);
+    this.announce(`All data exported: ${this.decks.length} decks, ${this.folders.length} folders.`);
+};
+
+// Helper: Download JSON data as file
+SparkDeckApp.prototype._downloadJSON = function(data, filename) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+// Import deck(s) from file - triggers file picker
+SparkDeckApp.prototype.triggerImport = function() {
+    // Create hidden file input if it doesn't exist
+    let fileInput = document.getElementById('import-file-input');
+    if (!fileInput) {
+        fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.id = 'import-file-input';
+        fileInput.accept = '.json,application/json';
+        fileInput.style.display = 'none';
+        fileInput.addEventListener('change', (e) => this._handleImportFile(e));
+        document.body.appendChild(fileInput);
+    }
+    fileInput.value = ''; // Reset so same file can be selected again
+    fileInput.click();
+};
+
+// Handle the imported file
+SparkDeckApp.prototype._handleImportFile = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        if (!data.version || !data.type) {
+            this.announce('Invalid file format. Please select a SparkDeck export file.');
+            return;
+        }
+
+        if (data.type === 'deck') {
+            await this._importSingleDeck(data);
+        } else if (data.type === 'backup') {
+            await this._importBackup(data);
+        } else {
+            this.announce('Unknown file type. Please select a valid SparkDeck export file.');
+        }
+    } catch (error) {
+        console.warn('Import error:', error);
+        this.announce('Error reading file. Please ensure it is a valid JSON file.');
+    }
+};
+
+// Import a single deck
+SparkDeckApp.prototype._importSingleDeck = async function(data) {
+    const deck = data.deck;
+    if (!deck || !deck.name || !Array.isArray(deck.cards)) {
+        this.announce('Invalid deck data.');
+        return;
+    }
+
+    // Check for duplicate name
+    const existingIndex = this.decks.findIndex(d => d.name.toLowerCase() === deck.name.toLowerCase());
+    if (existingIndex !== -1) {
+        const confirmed = await this.openConfirmModal({
+            title: 'Deck already exists',
+            message: `A deck named "${deck.name}" already exists. Do you want to replace it?`,
+            confirmText: 'Replace',
+            cancelText: 'Cancel'
+        });
+        if (!confirmed) {
+            this.announce('Import cancelled.');
+            return;
+        }
+        // Replace existing deck
+        this.decks[existingIndex] = {
+            name: deck.name,
+            category: deck.category || 'Other',
+            folderId: null, // Don't preserve folder from import
+            cards: deck.cards,
+            created: deck.created || new Date().toISOString()
+        };
+    } else {
+        // Add new deck
+        this.decks.push({
+            name: deck.name,
+            category: deck.category || 'Other',
+            folderId: null,
+            cards: deck.cards,
+            created: deck.created || new Date().toISOString()
+        });
+    }
+
+    if (this.saveDecks()) {
+        this.renderDecks();
+        this.announce(`Deck "${deck.name}" imported successfully with ${deck.cards.length} cards.`);
+    } else {
+        this.announce('Error saving imported deck.');
+    }
+};
+
+// Import a full backup
+SparkDeckApp.prototype._importBackup = async function(data) {
+    if (!Array.isArray(data.decks)) {
+        this.announce('Invalid backup data.');
+        return;
+    }
+
+    const deckCount = data.decks.length;
+    const folderCount = data.folders ? data.folders.length : 0;
+
+    const confirmed = await this.openConfirmModal({
+        title: 'Import backup',
+        message: `This backup contains ${deckCount} deck${deckCount !== 1 ? 's' : ''} and ${folderCount} folder${folderCount !== 1 ? 's' : ''}. Existing data will be merged. Continue?`,
+        confirmText: 'Import',
+        cancelText: 'Cancel'
+    });
+
+    if (!confirmed) {
+        this.announce('Import cancelled.');
+        return;
+    }
+
+    // Create a map of old folder IDs to new folder IDs
+    const folderIdMap = new Map();
+
+    // Import folders first (if any)
+    if (Array.isArray(data.folders)) {
+        for (const folder of data.folders) {
+            // Check for duplicate folder name at same level
+            const existingFolder = this.folders.find(f =>
+                f.name.toLowerCase() === folder.name.toLowerCase() &&
+                f.parentFolderId === (folderIdMap.get(folder.parentFolderId) || folder.parentFolderId || null)
+            );
+
+            if (existingFolder) {
+                // Map old ID to existing folder ID
+                folderIdMap.set(folder.id, existingFolder.id);
+            } else {
+                // Create new folder with new ID
+                const newFolder = {
+                    id: this.generateFolderId(),
+                    name: folder.name,
+                    parentFolderId: folderIdMap.get(folder.parentFolderId) || folder.parentFolderId || null,
+                    created: folder.created || new Date().toISOString()
+                };
+                // Map old ID to new ID
+                folderIdMap.set(folder.id, newFolder.id);
+                this.folders.push(newFolder);
+            }
+        }
+        this.saveFolders();
+    }
+
+    // Import decks
+    let importedCount = 0;
+    let skippedCount = 0;
+
+    for (const deck of data.decks) {
+        if (!deck.name || !Array.isArray(deck.cards)) continue;
+
+        // Check for duplicate name
+        const existingIndex = this.decks.findIndex(d => d.name.toLowerCase() === deck.name.toLowerCase());
+        if (existingIndex !== -1) {
+            skippedCount++;
+            continue; // Skip duplicates in bulk import
+        }
+
+        // Map folder ID if applicable
+        const mappedFolderId = deck.folderId ? (folderIdMap.get(deck.folderId) || deck.folderId) : null;
+        // Check if mapped folder exists, otherwise set to null
+        const folderExists = mappedFolderId ? this.folders.some(f => f.id === mappedFolderId) : true;
+
+        this.decks.push({
+            name: deck.name,
+            category: deck.category || 'Other',
+            folderId: folderExists ? mappedFolderId : null,
+            cards: deck.cards,
+            created: deck.created || new Date().toISOString()
+        });
+        importedCount++;
+    }
+
+    if (this.saveDecks()) {
+        this.populateFolderOptions(this.deckFolder);
+        this.renderDecks();
+        let message = `Imported ${importedCount} deck${importedCount !== 1 ? 's' : ''}`;
+        if (skippedCount > 0) {
+            message += `, skipped ${skippedCount} duplicate${skippedCount !== 1 ? 's' : ''}`;
+        }
+        this.announce(message + '.');
+    } else {
+        this.announce('Error saving imported data.');
+    }
 };
