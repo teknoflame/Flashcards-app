@@ -357,8 +357,8 @@ class SparkDeckApp {
         const isMuted = this.soundManager.isMuted();
         const wasActive = document.activeElement === this.muteToggleBtn;
 
-        this.muteToggleBtn.textContent = isMuted ? '🔇' : '🔊';
-        this.muteToggleBtn.setAttribute('aria-label', isMuted ? 'Unmute sounds' : 'Mute sounds');
+        this.muteToggleBtn.textContent = isMuted ? '🔇 Disabled' : '🔊 Enabled';
+        this.muteToggleBtn.setAttribute('aria-label', isMuted ? 'Sound effects disabled. Click to enable.' : 'Sound effects enabled. Click to disable.');
 
         // Force screen readers to re-announce by briefly removing and restoring focus
         if (wasActive) {
@@ -909,29 +909,197 @@ class SparkDeckApp {
         const deckEl = document.createElement('article');
         deckEl.className = 'deck-card';
         deckEl.setAttribute('aria-labelledby', `deck-title-${deckIndex}`);
-        const moveSelectId = `move-folder-${deckIndex}`;
+        const menuId = `deck-menu-${deckIndex}`;
+        const menuBtnId = `deck-menu-btn-${deckIndex}`;
+
         deckEl.innerHTML = `
             <div class="deck-header">
                 <h4 id="deck-title-${deckIndex}" class="deck-title">${deck.name}</h4>
+                <div class="deck-menu-container">
+                    <button type="button"
+                            id="${menuBtnId}"
+                            class="deck-menu-btn"
+                            aria-haspopup="menu"
+                            aria-expanded="false"
+                            aria-controls="${menuId}"
+                            aria-label="Actions for ${deck.name}">⋮</button>
+                    <div id="${menuId}"
+                         class="deck-menu"
+                         role="menu"
+                         aria-labelledby="${menuBtnId}"
+                         hidden>
+                        <button type="button" role="menuitem" class="deck-menu-item" data-action="study" data-deck-index="${deckIndex}">Study</button>
+                        <button type="button" role="menuitem" class="deck-menu-item" data-action="export" data-deck-index="${deckIndex}">Export</button>
+                        <button type="button" role="menuitem" class="deck-menu-item" data-action="move" data-deck-index="${deckIndex}">Move to Folder…</button>
+                        <div class="deck-menu-separator" role="separator"></div>
+                        <button type="button" role="menuitem" class="deck-menu-item deck-menu-item--danger" data-action="delete" data-deck-index="${deckIndex}">Delete</button>
+                    </div>
+                </div>
             </div>
             <p>${deck.cards.length} cards • ${deck.category}</p>
-            <div class="section" style="margin-top:10px;">
-                <label for="${moveSelectId}">Move to folder:</label>
-                <select id="${moveSelectId}" data-deck-index="${deckIndex}">
-                </select>
-            </div>
             <div class="button-group deck-actions">
-                <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study</button>
-                <button type="button" onclick="app.exportDeck(${deckIndex})" aria-label="Export deck ${deck.name}">Export</button>
-                <button type="button" onclick="app.deleteDeck(${deckIndex})" aria-label="Delete deck ${deck.name}">Delete</button>
+                <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study This Deck</button>
             </div>
         `;
 
-        const selectEl = deckEl.querySelector(`#${moveSelectId}`);
-        this.populateFolderOptions(selectEl, deck.folderId || '');
-        selectEl.addEventListener('change', (ev) => this.onMoveDeckFolderChanged(ev));
+        // Setup menu button
+        const menuBtn = deckEl.querySelector(`#${menuBtnId}`);
+        const menu = deckEl.querySelector(`#${menuId}`);
+
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleDeckMenu(menuBtn, menu);
+        });
+
+        // Setup menu items
+        const menuItems = menu.querySelectorAll('[role="menuitem"]');
+        menuItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                this.handleDeckMenuAction(e.target);
+                this.closeDeckMenu(menuBtn, menu);
+            });
+        });
+
+        // Setup keyboard navigation for menu
+        this.setupDeckMenuKeyboard(menuBtn, menu, menuItems);
 
         return deckEl;
+    }
+
+    toggleDeckMenu(btn, menu) {
+        const isOpen = !menu.hidden;
+        if (isOpen) {
+            this.closeDeckMenu(btn, menu);
+        } else {
+            this.openDeckMenu(btn, menu);
+        }
+    }
+
+    openDeckMenu(btn, menu) {
+        // Close any other open menus first
+        document.querySelectorAll('.deck-menu:not([hidden])').forEach(openMenu => {
+            const openBtn = document.querySelector(`[aria-controls="${openMenu.id}"]`);
+            if (openBtn) this.closeDeckMenu(openBtn, openMenu);
+        });
+
+        menu.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+
+        // Focus first menu item
+        const firstItem = menu.querySelector('[role="menuitem"]');
+        if (firstItem) firstItem.focus();
+
+        // Close on outside click
+        const closeHandler = (e) => {
+            if (!menu.contains(e.target) && e.target !== btn) {
+                this.closeDeckMenu(btn, menu);
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler), 0);
+    }
+
+    closeDeckMenu(btn, menu) {
+        menu.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        btn.focus();
+    }
+
+    setupDeckMenuKeyboard(btn, menu, items) {
+        const itemsArray = Array.from(items);
+
+        btn.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.openDeckMenu(btn, menu);
+            }
+        });
+
+        menu.addEventListener('keydown', (e) => {
+            const currentIndex = itemsArray.indexOf(document.activeElement);
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    const nextIndex = (currentIndex + 1) % itemsArray.length;
+                    itemsArray[nextIndex].focus();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    const prevIndex = (currentIndex - 1 + itemsArray.length) % itemsArray.length;
+                    itemsArray[prevIndex].focus();
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.closeDeckMenu(btn, menu);
+                    break;
+                case 'Tab':
+                    this.closeDeckMenu(btn, menu);
+                    break;
+                case 'Home':
+                    e.preventDefault();
+                    itemsArray[0].focus();
+                    break;
+                case 'End':
+                    e.preventDefault();
+                    itemsArray[itemsArray.length - 1].focus();
+                    break;
+            }
+        });
+    }
+
+    async handleDeckMenuAction(menuItem) {
+        const action = menuItem.dataset.action;
+        const deckIndex = parseInt(menuItem.dataset.deckIndex, 10);
+
+        switch (action) {
+            case 'study':
+                this.startStudy(deckIndex);
+                break;
+            case 'export':
+                this.exportDeck(deckIndex);
+                break;
+            case 'move':
+                await this.promptMoveDeck(deckIndex);
+                break;
+            case 'delete':
+                await this.deleteDeck(deckIndex);
+                break;
+        }
+    }
+
+    async promptMoveDeck(deckIndex) {
+        const deck = this.decks[deckIndex];
+        if (!deck) return;
+
+        // Build folder options
+        const foldersSorted = [...this.folders].sort((a, b) => a.name.localeCompare(b.name));
+        const options = [{ value: '', label: '(No folder)' }];
+        foldersSorted.forEach(f => options.push({ value: f.id, label: f.name }));
+
+        const currentFolder = deck.folderId || '';
+        const currentFolderName = deck.folderId
+            ? (this.folders.find(f => f.id === deck.folderId)?.name || 'Unknown')
+            : '(No folder)';
+
+        const newFolderId = await this.openSelectModal({
+            title: `Move "${deck.name}"`,
+            label: 'Select destination folder:',
+            options: options,
+            initialValue: currentFolder,
+            confirmText: 'Move',
+        });
+
+        if (newFolderId === null) return; // Cancelled
+
+        deck.folderId = newFolderId || null;
+        this.saveDecks();
+        this.renderDecks();
+
+        const newFolderName = newFolderId
+            ? (this.folders.find(f => f.id === newFolderId)?.name || 'Unknown')
+            : '(No folder)';
+        this.announce(`Moved "${deck.name}" to ${newFolderName}.`);
     }
 
     setCreationMode(mode) {
@@ -1124,22 +1292,6 @@ class SparkDeckApp {
         this.saveDecks();
         this.renderDecks();
         this.announce(`Deck "${deck.name}" deleted.`);
-    }
-
-    onMoveDeckFolderChanged(e) {
-        const target = e.target;
-        const deckIndex = Number(target.getAttribute('data-deck-index'));
-        if (target.value === '__NEW__') {
-            this.promptAddFolder({ focusSelectAfter: true, applyToSelect: target });
-            return;
-        }
-        const newFolderId = target.value || null;
-        const deck = this.decks[deckIndex];
-        deck.folderId = newFolderId;
-        this.saveDecks();
-        this.renderDecks();
-        const folderName = newFolderId ? (this.folders.find(f => f.id === newFolderId)?.name || '(Unknown)') : '(No folder)';
-        this.announce(`Moved deck "${deck.name}" to folder ${folderName}.`);
     }
 
     startStudy(deckIndex) {
@@ -1341,6 +1493,32 @@ SparkDeckApp.prototype.openConfirmModal = function({ title, message, confirmText
             initialFocus: this.modalConfirmBtn,
             onConfirm: () => resolve(true),
             onCancel: () => resolve(false),
+        });
+    });
+};
+
+SparkDeckApp.prototype.openSelectModal = function({ title, label, options, initialValue = '', confirmText = 'OK', cancelText = 'Cancel' }) {
+    return new Promise((resolve) => {
+        const selectId = 'modal-select-input';
+        this.modalTitle.textContent = title;
+        this.modalDesc.textContent = `${label} selection dialog.`;
+
+        let optionsHtml = options.map(opt =>
+            `<option value="${opt.value}"${opt.value === initialValue ? ' selected' : ''}>${opt.label}</option>`
+        ).join('');
+
+        this.modalContent.innerHTML = `
+            <label for="${selectId}">${label}</label>
+            <select id="${selectId}">${optionsHtml}</select>
+        `;
+        this.modalConfirmBtn.textContent = confirmText;
+        this.modalCancelBtn.textContent = cancelText;
+
+        const selectEl = this.modalContent.querySelector(`#${selectId}`);
+        const cleanup = this._openModalCommon({
+            initialFocus: selectEl,
+            onConfirm: () => { cleanup(); resolve(selectEl.value); },
+            onCancel: () => { cleanup(); resolve(null); },
         });
     });
 };

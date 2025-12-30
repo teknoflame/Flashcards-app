@@ -481,6 +481,117 @@
         .my-decks-section .deck-card {
             background: #fff;
         }
+
+        /* Settings styles */
+        .settings-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .settings-section h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        .setting-item label {
+            margin-bottom: 0;
+            font-weight: 500;
+        }
+
+        .setting-item button {
+            width: auto;
+            padding: 8px 16px;
+        }
+
+        .setting-description {
+            color: #6c757d;
+            margin-bottom: 15px;
+        }
+
+        /* Deck action menu styles */
+        .deck-menu-container {
+            position: relative;
+        }
+
+        .deck-menu-btn {
+            width: auto;
+            padding: 8px 12px;
+            background: transparent;
+            border: 2px solid #bdc3c7;
+            color: #2c3e50;
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .deck-menu-btn:hover, .deck-menu-btn:focus {
+            background: #f8f9fa;
+            border-color: #3498db;
+        }
+
+        .deck-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 180px;
+            z-index: 100;
+            padding: 4px 0;
+        }
+
+        .deck-menu[hidden] {
+            display: none;
+        }
+
+        .deck-menu-item {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            text-align: left;
+            background: transparent;
+            border: none;
+            font-size: 15px;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+
+        .deck-menu-item:hover, .deck-menu-item:focus {
+            background: #e3f2fd;
+            outline: none;
+        }
+
+        .deck-menu-item:focus {
+            background: #3498db;
+            color: white;
+        }
+
+        .deck-menu-separator {
+            height: 1px;
+            background: #dee2e6;
+            margin: 4px 0;
+        }
+
+        .deck-menu-item--danger {
+            color: #e74c3c;
+        }
+
+        .deck-menu-item--danger:focus {
+            background: #e74c3c;
+            color: white;
+        }
 </style>
 </head>
 <body>
@@ -489,10 +600,7 @@
             <h1>SparkDeck</h1>
             <p>Intelligent, accessible flashcards with spaced repetition - making studying seamless and engaging for everyone.</p>
             <div class="section" style="margin-top:10px;">
-                <div class="button-group">
-                    <button id="open-help-btn" type="button">Help</button>
-                    <button id="mute-toggle-btn" type="button" aria-label="Mute sounds">🔊</button>
-                </div>
+                <button id="open-help-btn" type="button">Help</button>
             </div>
         </header>
 
@@ -503,18 +611,15 @@
             <button class="nav-tab active" role="tab" data-tab="decks" aria-selected="true">My Decks</button>
             <button class="nav-tab" role="tab" data-tab="create">Create Deck</button>
             <button class="nav-tab" role="tab" data-tab="study">Study Mode</button>
+            <button class="nav-tab" role="tab" data-tab="settings">Settings</button>
         </nav>
 
         <main>
             <!-- Decks Tab -->
             <section class="tab-content active" id="decks-tab" role="tabpanel">
                 <h2>Your Study Decks</h2>
-                <div class="section" aria-label="Deck and folder actions">
-                    <div class="button-group">
-                        <button id="add-folder-btn" type="button">Add Folder</button>
-                        <button id="import-btn" type="button" onclick="app.triggerImport()">Import</button>
-                        <button id="export-all-btn" type="button" onclick="app.exportAllData()">Export All</button>
-                    </div>
+                <div class="section" aria-label="Folder actions">
+                    <button id="add-folder-btn" type="button">Add Folder</button>
                 </div>
                 <div id="decks-list">
                     <div class="empty-state">
@@ -623,6 +728,28 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     </div>
                 </div>
             </section>
+
+            <!-- Settings Tab -->
+            <section class="tab-content" id="settings-tab" role="tabpanel">
+                <h2>Settings</h2>
+
+                <div class="settings-section">
+                    <h3>Sound</h3>
+                    <div class="setting-item">
+                        <label for="mute-toggle-btn">Sound Effects</label>
+                        <button id="mute-toggle-btn" type="button" aria-label="Toggle sound effects">🔊 Enabled</button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Data Management</h3>
+                    <p class="setting-description">Import and export your decks and folders for backup or sharing.</p>
+                    <div class="button-group">
+                        <button id="import-btn" type="button" onclick="app.triggerImport()">Import Data</button>
+                        <button id="export-all-btn" type="button" onclick="app.exportAllData()">Export All Data</button>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -639,11 +766,21 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 <h2>Overview</h2>
                 <p>SparkDeck lets you create flashcard decks, generate cards from notes, and study them with accessible controls and progress tracking.</p>
 
-                <h2>Import &amp; Export</h2>
+                <h2>Settings</h2>
+                <p>Access Settings from the navigation tabs to:</p>
                 <ul>
-                    <li><strong>Export Deck:</strong> Click "Export" on any deck to download it as a JSON file.</li>
-                    <li><strong>Export All:</strong> Click "Export All" to backup all decks and folders.</li>
-                    <li><strong>Import:</strong> Click "Import" to load decks from a SparkDeck JSON file.</li>
+                    <li><strong>Sound Effects:</strong> Toggle sounds on/off</li>
+                    <li><strong>Import Data:</strong> Load decks from a SparkDeck JSON file</li>
+                    <li><strong>Export All:</strong> Backup all your decks and folders</li>
+                </ul>
+
+                <h2>Deck Actions</h2>
+                <p>Click the ⋮ menu button on any deck for options:</p>
+                <ul>
+                    <li><strong>Study:</strong> Start studying the deck</li>
+                    <li><strong>Export:</strong> Download the deck as a JSON file</li>
+                    <li><strong>Move to Folder:</strong> Organize your deck</li>
+                    <li><strong>Delete:</strong> Remove the deck</li>
                 </ul>
 
                 <h2>Keyboard Shortcuts</h2>
