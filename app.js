@@ -380,8 +380,18 @@ class StudyFlowApp {
     loadFolders() {
         try {
             const saved = localStorage.getItem('studyflow-folders');
-            const folders = saved ? JSON.parse(saved) : [];
-            return Array.isArray(folders) ? folders : [];
+            let folders = saved ? JSON.parse(saved) : [];
+            if (!Array.isArray(folders)) folders = [];
+
+            // Migration: Add parentFolderId to existing folders
+            folders = folders.map(folder => {
+                if (!folder.hasOwnProperty('parentFolderId')) {
+                    folder.parentFolderId = null; // Existing folders become root-level
+                }
+                return folder;
+            });
+
+            return folders;
         } catch (error) {
             console.warn('Could not load folders:', error);
             return [];
@@ -452,9 +462,14 @@ class StudyFlowApp {
         }
     }
 
-    async promptAddFolder({ focusSelectAfter = false, applyToSelect = null } = {}) {
+    async promptAddFolder({ focusSelectAfter = false, applyToSelect = null, parentFolderId = null } = {}) {
+        const isSubfolder = parentFolderId !== null && parentFolderId !== undefined;
+        const parentFolder = isSubfolder ? this.folders.find(f => f.id === parentFolderId) : null;
+
+        const title = isSubfolder ? `Create subfolder in ${parentFolder?.name || 'folder'}` : 'Create folder';
+
         const name = await this.openTextModal({
-            title: 'Create folder',
+            title: title,
             label: 'Folder name',
             confirmText: 'Create',
         });
@@ -463,18 +478,30 @@ class StudyFlowApp {
             return;
         }
         const finalName = name.trim();
-        const dup = this.folders.find(f => f.name.toLowerCase() === finalName.toLowerCase());
+
+        // Check for duplicate names within the same parent folder
+        const dup = this.folders.find(f =>
+            f.name.toLowerCase() === finalName.toLowerCase() &&
+            f.parentFolderId === parentFolderId
+        );
         if (dup) {
-            this.announce(`A folder named "${finalName}" already exists.`);
+            this.announce(`A folder named "${finalName}" already exists in this location.`);
             if (applyToSelect) {
                 applyToSelect.value = dup.id;
             }
             return;
         }
-        const folder = { id: this.generateFolderId(), name: finalName, created: new Date().toISOString() };
+
+        const folder = {
+            id: this.generateFolderId(),
+            name: finalName,
+            parentFolderId: parentFolderId || null,
+            created: new Date().toISOString()
+        };
         this.folders.push(folder);
         if (this.saveFolders()) {
-            this.announce(`Folder "${finalName}" created.`);
+            const location = isSubfolder ? ` in ${parentFolder.name}` : '';
+            this.announce(`Folder "${finalName}" created${location}.`);
             this.populateFolderOptions(this.deckFolder, folder.id);
             this.renderDecks();
             if (applyToSelect) {
@@ -514,23 +541,52 @@ class StudyFlowApp {
     async deleteFolder(folderId) {
         const folder = this.folders.find(f => f.id === folderId);
         if (!folder) return;
+
+        // Check for subfolders
+        const subfolders = this.folders.filter(f => f.parentFolderId === folderId);
+        const hasSubfolders = subfolders.length > 0;
+
+        let message = `Delete folder "${folder.name}"?`;
+        if (hasSubfolders) {
+            message += ` This folder contains ${subfolders.length} subfolder${subfolders.length > 1 ? 's' : ''}. Subfolders and decks will be moved to the parent folder.`;
+        } else {
+            message += ` Decks will be moved to the parent folder.`;
+        }
+
         const confirmDelete = await this.openConfirmModal({
             title: 'Delete folder',
-            message: `Delete folder "${folder.name}"? Decks will be moved to (No folder).`,
+            message: message,
             confirmText: 'Delete',
         });
         if (!confirmDelete) return;
-        this.decks.forEach(d => { if (d.folderId === folderId) d.folderId = null; });
+
+        // Move decks to parent folder (or null if root level)
+        this.decks.forEach(d => {
+            if (d.folderId === folderId) {
+                d.folderId = folder.parentFolderId;
+            }
+        });
+
+        // Move subfolders to parent folder
+        this.folders.forEach(f => {
+            if (f.parentFolderId === folderId) {
+                f.parentFolderId = folder.parentFolderId;
+            }
+        });
+
+        // Remove the folder
         this.folders = this.folders.filter(f => f.id !== folderId);
-        // Navigate back to home if we're viewing the deleted folder
+
+        // Navigate to parent folder if we're viewing the deleted folder
         if (this.currentFolderId === folderId) {
-            this.currentFolderId = null;
+            this.currentFolderId = folder.parentFolderId;
         }
+
         this.saveFolders();
         this.saveDecks();
         this.populateFolderOptions(this.deckFolder, this.deckFolder.value === folderId ? '' : this.deckFolder.value);
         this.renderDecks();
-        this.announce('Folder deleted and decks moved to (No folder).');
+        this.announce('Folder deleted. Contents moved to parent folder.');
     }
 
 
@@ -561,43 +617,82 @@ class StudyFlowApp {
 
         const foldersSorted = [...this.folders].sort((a, b) => a.name.localeCompare(b.name));
 
-        // If we're viewing a specific folder, show only that folder's decks
+        // If we're viewing a specific folder, show subfolders and decks
         if (this.currentFolderId) {
             const folder = this.folders.find(f => f.id === this.currentFolderId);
             if (folder) {
                 const folderDecks = groups.get(this.currentFolderId) || [];
+                const subfolders = this.folders.filter(f => f.parentFolderId === this.currentFolderId);
+                const sortedSubfolders = [...subfolders].sort((a, b) => a.name.localeCompare(b.name));
 
-                if (folderDecks.length === 0) {
+                const hasContent = folderDecks.length > 0 || sortedSubfolders.length > 0;
+
+                if (!hasContent) {
                     const emptyMsg = document.createElement('div');
                     emptyMsg.className = 'empty-state';
                     emptyMsg.innerHTML = `
                         <p>This folder is empty.</p>
-                        <button type="button" onclick="app.switchTab('create')">Create a Deck</button>
+                        <div class="button-group">
+                            <button type="button" onclick="app.promptAddFolder({ parentFolderId: '${this.currentFolderId}' })">Create Subfolder</button>
+                            <button type="button" onclick="app.switchTab('create')">Create Deck</button>
+                        </div>
                     `;
                     this.decksList.appendChild(emptyMsg);
                 } else {
-                    const decksSection = document.createElement('section');
-                    decksSection.className = 'folder-decks-section';
-                    decksSection.setAttribute('aria-labelledby', 'current-folder-heading');
+                    // Show "Create Subfolder" button
+                    const actionSection = document.createElement('div');
+                    actionSection.className = 'folder-actions-bar';
+                    actionSection.innerHTML = `
+                        <button type="button" onclick="app.promptAddFolder({ parentFolderId: '${this.currentFolderId}' })">Create Subfolder</button>
+                    `;
+                    this.decksList.appendChild(actionSection);
 
-                    const heading = document.createElement('h3');
-                    heading.id = 'current-folder-heading';
-                    heading.textContent = `${folder.name} (${folderDecks.length} ${folderDecks.length === 1 ? 'deck' : 'decks'})`;
-                    decksSection.appendChild(heading);
+                    // Show subfolders
+                    if (sortedSubfolders.length > 0) {
+                        const subfoldersSection = document.createElement('section');
+                        subfoldersSection.className = 'subfolders-section';
+                        subfoldersSection.setAttribute('aria-labelledby', 'subfolders-heading');
 
-                    folderDecks.forEach(deckIndex => {
-                        const deckEl = this.createDeckCard(deckIndex);
-                        decksSection.appendChild(deckEl);
-                    });
+                        const subfoldersHeading = document.createElement('h3');
+                        subfoldersHeading.id = 'subfolders-heading';
+                        subfoldersHeading.textContent = 'Folders';
+                        subfoldersSection.appendChild(subfoldersHeading);
 
-                    this.decksList.appendChild(decksSection);
+                        sortedSubfolders.forEach(subfolder => {
+                            const subfolderDecks = groups.get(subfolder.id) || [];
+                            const subfolderCard = this.createFolderCard(subfolder, subfolderDecks.length);
+                            subfoldersSection.appendChild(subfolderCard);
+                        });
+
+                        this.decksList.appendChild(subfoldersSection);
+                    }
+
+                    // Show decks
+                    if (folderDecks.length > 0) {
+                        const decksSection = document.createElement('section');
+                        decksSection.className = 'folder-decks-section';
+                        decksSection.setAttribute('aria-labelledby', 'current-folder-decks-heading');
+
+                        const heading = document.createElement('h3');
+                        heading.id = 'current-folder-decks-heading';
+                        heading.textContent = `Decks (${folderDecks.length})`;
+                        decksSection.appendChild(heading);
+
+                        folderDecks.forEach(deckIndex => {
+                            const deckEl = this.createDeckCard(deckIndex);
+                            decksSection.appendChild(deckEl);
+                        });
+
+                        this.decksList.appendChild(decksSection);
+                    }
                 }
             }
             return;
         }
 
-        // Root view: Show all folders as clickable cards + unorganized decks
-        if (foldersSorted.length > 0) {
+        // Root view: Show only root-level folders (parentFolderId === null) + unorganized decks
+        const rootFolders = foldersSorted.filter(f => !f.parentFolderId);
+        if (rootFolders.length > 0) {
             const foldersSection = document.createElement('section');
             foldersSection.className = 'folders-section';
             foldersSection.setAttribute('aria-labelledby', 'folders-heading');
@@ -607,7 +702,7 @@ class StudyFlowApp {
             foldersHeading.textContent = 'Folders';
             foldersSection.appendChild(foldersHeading);
 
-            foldersSorted.forEach(folder => {
+            rootFolders.forEach(folder => {
                 const folderId = folder.id;
                 const folderDecks = groups.get(folderId) || [];
                 const deckCount = folderDecks.length;
@@ -640,6 +735,35 @@ class StudyFlowApp {
         }
     }
 
+    // Build folder path from current folder to root
+    getFolderPath(folderId) {
+        const path = [];
+        let currentId = folderId;
+
+        while (currentId) {
+            const folder = this.folders.find(f => f.id === currentId);
+            if (!folder) break;
+            path.unshift(folder); // Add to beginning
+            currentId = folder.parentFolderId;
+        }
+
+        return path;
+    }
+
+    // Count total items in folder (decks + subfolders recursively)
+    countFolderItems(folderId) {
+        // Count direct decks
+        let count = this.decks.filter(d => d.folderId === folderId).length;
+
+        // Count subfolders recursively
+        const subfolders = this.folders.filter(f => f.parentFolderId === folderId);
+        subfolders.forEach(subfolder => {
+            count += this.countFolderItems(subfolder.id);
+        });
+
+        return count;
+    }
+
     renderBreadcrumb() {
         const breadcrumbNav = document.createElement('nav');
         breadcrumbNav.setAttribute('aria-label', 'Breadcrumb');
@@ -667,22 +791,41 @@ class StudyFlowApp {
 
         breadcrumbList.appendChild(homeItem);
 
-        // Current folder (if any)
+        // Build full path to current folder
         if (this.currentFolderId) {
-            const folder = this.folders.find(f => f.id === this.currentFolderId);
-            if (folder) {
+            const folderPath = this.getFolderPath(this.currentFolderId);
+
+            folderPath.forEach((folder, index) => {
+                // Separator
                 const separator = document.createElement('li');
                 separator.className = 'breadcrumb-separator';
                 separator.setAttribute('aria-hidden', 'true');
                 separator.textContent = '›';
                 breadcrumbList.appendChild(separator);
 
+                // Folder item
                 const folderItem = document.createElement('li');
                 folderItem.className = 'breadcrumb-item';
-                folderItem.textContent = folder.name;
-                folderItem.setAttribute('aria-current', 'page');
+
+                const isLast = index === folderPath.length - 1;
+
+                if (isLast) {
+                    // Current folder - not clickable
+                    folderItem.textContent = folder.name;
+                    folderItem.setAttribute('aria-current', 'page');
+                } else {
+                    // Parent folder - clickable
+                    const folderLink = document.createElement('button');
+                    folderLink.type = 'button';
+                    folderLink.className = 'breadcrumb-link';
+                    folderLink.textContent = folder.name;
+                    folderLink.setAttribute('aria-label', `Navigate to ${folder.name}`);
+                    folderLink.onclick = () => this.navigateToFolder(folder.id);
+                    folderItem.appendChild(folderLink);
+                }
+
                 breadcrumbList.appendChild(folderItem);
-            }
+            });
         }
 
         breadcrumbNav.appendChild(breadcrumbList);
@@ -697,14 +840,24 @@ class StudyFlowApp {
         const folderButton = document.createElement('button');
         folderButton.type = 'button';
         folderButton.className = 'folder-card-button';
-        folderButton.setAttribute('aria-label', `Open folder ${folder.name}, ${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}`);
+
+        // Count subfolders
+        const subfolderCount = this.folders.filter(f => f.parentFolderId === folder.id).length;
+
+        // Build count text
+        let countParts = [];
+        if (deckCount > 0) countParts.push(`${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}`);
+        if (subfolderCount > 0) countParts.push(`${subfolderCount} ${subfolderCount === 1 ? 'folder' : 'folders'}`);
+        const countText = countParts.length > 0 ? countParts.join(', ') : 'Empty';
+
+        folderButton.setAttribute('aria-label', `Open folder ${folder.name}, contains ${countText}`);
         folderButton.onclick = () => this.navigateToFolder(folder.id);
 
         folderButton.innerHTML = `
             <div class="folder-card-icon">📁</div>
             <div class="folder-card-content">
                 <h4 id="folder-title-${folder.id}" class="folder-card-title">${folder.name}</h4>
-                <p class="folder-card-count">${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}</p>
+                <p class="folder-card-count">${countText}</p>
             </div>
         `;
 
