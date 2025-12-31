@@ -493,7 +493,7 @@ button:hover {
 
 .quiz-option {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     padding: 15px 20px;
     background: #f8f9fa;
     border: 2px solid #dee2e6;
@@ -547,6 +547,7 @@ button:hover {
     font-weight: 600;
     margin-right: 15px;
     flex-shrink: 0;
+    margin-top: 2px;
 }
 
 .quiz-option.correct .quiz-option-letter {
@@ -555,6 +556,13 @@ button:hover {
 
 .quiz-option.incorrect .quiz-option-letter {
     background: #e74c3c;
+}
+
+.quiz-option-text {
+    flex: 1;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.5;
 }
 
 .quiz-written {
