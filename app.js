@@ -1594,15 +1594,29 @@ class SparkDeckApp {
         // Generate options
         const options = this.generateMCOptions(correctCard);
 
-        this.quizMcOptions.innerHTML = options.map((opt, idx) => {
+        // Clear previous options
+        this.quizMcOptions.innerHTML = '';
+
+        // Create option buttons using DOM methods (safe from HTML injection)
+        options.forEach((opt, idx) => {
             const letter = String.fromCharCode(65 + idx); // A, B, C, D
-            return `
-                <button type="button" class="quiz-option" data-answer="${opt.answer}" data-correct="${opt.isCorrect}">
-                    <span class="quiz-option-letter">${letter}</span>
-                    <span class="quiz-option-text">${opt.answer}</span>
-                </button>
-            `;
-        }).join('');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'quiz-option';
+            btn.dataset.correct = opt.isCorrect;
+
+            const letterSpan = document.createElement('span');
+            letterSpan.className = 'quiz-option-letter';
+            letterSpan.textContent = letter;
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'quiz-option-text';
+            textSpan.textContent = opt.answer; // textContent safely escapes HTML
+
+            btn.appendChild(letterSpan);
+            btn.appendChild(textSpan);
+            this.quizMcOptions.appendChild(btn);
+        });
 
         // Add event listeners to options
         const optionBtns = this.quizMcOptions.querySelectorAll('.quiz-option');
