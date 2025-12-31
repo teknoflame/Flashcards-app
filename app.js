@@ -1668,16 +1668,30 @@ class SparkDeckApp {
     }
 
     /**
-     * Get the appropriate article (a/an) for a word
+     * Get the appropriate article (a/an) for a word, or empty string if none needed
      */
     getArticle(word) {
         if (!word) return '';
-        const firstChar = word.trim().charAt(0).toLowerCase();
+        const trimmed = word.trim();
+
+        // Skip articles for compound terms (2+ words) - they often don't need articles
+        // e.g., "context compression", "machine learning" sound better without "a"
+        if (trimmed.includes(' ')) {
+            return '';
+        }
+
+        // Skip articles for abstract noun suffixes (often uncountable)
+        const abstractSuffixes = /(tion|sion|ment|ness|ity|ing|ism|ance|ence)$/i;
+        if (trimmed.match(abstractSuffixes)) {
+            return '';
+        }
+
+        const firstChar = trimmed.charAt(0).toLowerCase();
         const vowels = ['a', 'e', 'i', 'o', 'u'];
         // Special cases for common exceptions
         const useAn = vowels.includes(firstChar) ||
-                      word.match(/^(hour|honest|heir|honor)/i) ||
-                      word.match(/^[AEFHILMNORSX]$/i); // Single letters that sound like vowels
+                      trimmed.match(/^(hour|honest|heir|honor)/i) ||
+                      trimmed.match(/^[AEFHILMNORSX]$/i); // Single letters that sound like vowels
         return useAn ? 'an' : 'a';
     }
 
@@ -1720,6 +1734,7 @@ class SparkDeckApp {
 
         // Generate options
         const options = this.generateMCOptions(correctCard);
+        const question = this.currentQuizQuestion.question;
 
         // Clear previous options
         this.quizMcOptions.innerHTML = '';
@@ -1732,12 +1747,18 @@ class SparkDeckApp {
             btn.className = 'quiz-option';
             btn.dataset.correct = opt.isCorrect;
 
+            // Add aria-label that includes the question for screen readers
+            // This way users don't have to navigate away to hear the question
+            btn.setAttribute('aria-label', `${question} Option ${letter}: ${opt.answer}`);
+
             const letterSpan = document.createElement('span');
             letterSpan.className = 'quiz-option-letter';
+            letterSpan.setAttribute('aria-hidden', 'true'); // Hide from SR since it's in aria-label
             letterSpan.textContent = letter;
 
             const textSpan = document.createElement('span');
             textSpan.className = 'quiz-option-text';
+            textSpan.setAttribute('aria-hidden', 'true'); // Hide from SR since it's in aria-label
             textSpan.textContent = opt.answer; // textContent safely escapes HTML
 
             btn.appendChild(letterSpan);
@@ -1758,16 +1779,74 @@ class SparkDeckApp {
     }
 
     generateMCOptions(correctCard) {
-        const correctAnswer = correctCard.back;
-        const otherCards = this.quizCards.filter(c => c.back !== correctAnswer);
+        // Use smart question answer (could be abbreviation, expansion, or definition)
+        const correctAnswer = this.currentQuizQuestion.answer;
+        const questionText = this.currentQuizQuestion.question.toLowerCase();
 
-        // Shuffle and pick 3 distractors
-        const shuffledOthers = this.shuffleArray(otherCards);
-        const distractors = shuffledOthers.slice(0, 3).map(c => c.back);
+        // Determine what kind of distractors we need based on question type
+        const isAskingForAbbreviation = questionText.includes('abbreviation for');
+        const isAskingForExpansion = questionText.includes('stand for');
 
-        // If not enough unique distractors, duplicate some
-        while (distractors.length < 3 && otherCards.length > 0) {
-            distractors.push(otherCards[distractors.length % otherCards.length].back);
+        let distractors = [];
+
+        if (isAskingForAbbreviation || isAskingForExpansion) {
+            // For abbreviation questions, find other abbreviations/expansions from cards
+            const abbrevPattern = /^([A-Z]{2,10})\s*\(([^)]+)\)/i;
+            const reversePattern = /^(.+?)\s*\(([A-Z]{2,10})\)/i;
+
+            this.quizCards.forEach(card => {
+                if (card === correctCard) return;
+
+                let match = card.front.match(abbrevPattern);
+                if (match) {
+                    if (isAskingForAbbreviation) {
+                        // Add the abbreviation as a distractor
+                        distractors.push(match[1].toUpperCase());
+                    } else {
+                        // Add the full term as a distractor
+                        distractors.push(match[2].trim());
+                    }
+                }
+
+                match = card.front.match(reversePattern);
+                if (match && match[2].match(/^[A-Z]{2,10}$/)) {
+                    if (isAskingForAbbreviation) {
+                        distractors.push(match[2].toUpperCase());
+                    } else {
+                        distractors.push(match[1].trim());
+                    }
+                }
+            });
+
+            // Remove duplicates and the correct answer
+            distractors = [...new Set(distractors)].filter(d =>
+                d.toLowerCase() !== correctAnswer.toLowerCase()
+            );
+        }
+
+        // If we don't have enough distractors, fall back to card backs
+        if (distractors.length < 3) {
+            const otherCards = this.quizCards.filter(c =>
+                c !== correctCard && c.back.toLowerCase() !== correctAnswer.toLowerCase()
+            );
+            const shuffledOthers = this.shuffleArray(otherCards);
+            const backDistractors = shuffledOthers.map(c => c.back);
+
+            // Add unique backs to fill remaining slots
+            for (const back of backDistractors) {
+                if (distractors.length >= 3) break;
+                if (!distractors.some(d => d.toLowerCase() === back.toLowerCase())) {
+                    distractors.push(back);
+                }
+            }
+        }
+
+        // Shuffle and pick up to 3 distractors
+        distractors = this.shuffleArray(distractors).slice(0, 3);
+
+        // If still not enough, duplicate what we have
+        while (distractors.length < 3 && distractors.length > 0) {
+            distractors.push(distractors[distractors.length % distractors.length]);
         }
 
         // Create options array
@@ -1812,6 +1891,11 @@ class SparkDeckApp {
         this.quizMcOptions.classList.add('hidden');
         this.quizWrittenInput.classList.remove('hidden');
         this.quizAnswerInput.value = '';
+
+        // Set aria-label with question so screen readers announce it with the input
+        const question = this.currentQuizQuestion.question;
+        this.quizAnswerInput.setAttribute('aria-label', `${question} Type your answer`);
+
         this.quizAnswerInput.focus();
     }
 
