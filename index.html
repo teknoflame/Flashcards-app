@@ -180,6 +180,24 @@
             margin-bottom: 10px;
         }
 
+        .card-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .card-actions button {
+            width: auto;
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
+        /* Card editing state */
+        .deck-card.editing {
+            border-color: #f39c12;
+            background: #fef9e7;
+            box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.2);
+        }
+
         .deck-title {
             font-size: 18px;
             font-weight: 600;
@@ -632,7 +650,7 @@
 
             <!-- Create Deck Tab -->
             <section class="tab-content" id="create-tab" role="tabpanel">
-                <h2>Create New Deck</h2>
+                <h2 id="create-tab-heading">Create New Deck</h2>
                 
                 <div class="section">
                     <label for="deck-name">Deck Name:</label>
@@ -685,7 +703,10 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     <input type="url" id="card-media" placeholder="https://www.youtube.com/watch?v=..." aria-describedby="card-media-help">
                     <div id="card-media-help" class="sr-only">Provide a link to a video or file. You can preview it after adding the card. Supported: YouTube (embedded). Other services will open in a viewer.</div>
                     
-                    <button id="add-card-btn" type="button">Add This Card</button>
+                    <div class="button-group">
+                        <button id="add-card-btn" type="button">Add This Card</button>
+                        <button id="cancel-card-edit-btn" type="button" class="hidden">Cancel Edit</button>
+                    </div>
                 </div>
 
                 <div id="cards-preview" class="section hidden">
