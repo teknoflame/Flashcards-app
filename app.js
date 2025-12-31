@@ -955,8 +955,11 @@ class SparkDeckApp {
         const menuItems = menu.querySelectorAll('[role="menuitem"]');
         menuItems.forEach(item => {
             item.addEventListener('click', (e) => {
+                const action = e.target.dataset.action;
                 this.handleDeckMenuAction(e.target);
-                this.closeDeckMenu(menuBtn, menu);
+                // Don't restore focus for export - let the system save dialog take focus
+                const restoreFocus = action !== 'export';
+                this.closeDeckMenu(menuBtn, menu, restoreFocus);
             });
         });
 
@@ -999,10 +1002,12 @@ class SparkDeckApp {
         setTimeout(() => document.addEventListener('click', closeHandler), 0);
     }
 
-    closeDeckMenu(btn, menu) {
+    closeDeckMenu(btn, menu, restoreFocus = true) {
         menu.hidden = true;
         btn.setAttribute('aria-expanded', 'false');
-        btn.focus();
+        if (restoreFocus) {
+            btn.focus();
+        }
     }
 
     setupDeckMenuKeyboard(btn, menu, items) {
