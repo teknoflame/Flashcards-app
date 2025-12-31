@@ -1518,6 +1518,9 @@ class SparkDeckApp {
             this.modalConfirmBtn.textContent = 'Start Quiz';
             this.modalCancelBtn.textContent = 'Cancel';
 
+            // Ensure confirm button is enabled (may be disabled from previous text modal)
+            this.modalConfirmBtn.disabled = false;
+
             const firstRadio = this.modalContent.querySelector('input[type="radio"]');
             const cleanup = this._openModalCommon({
                 initialFocus: firstRadio,
