@@ -1773,9 +1773,9 @@ class SparkDeckApp {
             btn.addEventListener('click', () => this.selectMCOption(btn, optionBtns));
         });
 
-        // Focus first option
+        // Delay focus so screen reader announces question first
         if (optionBtns.length > 0) {
-            optionBtns[0].focus();
+            setTimeout(() => optionBtns[0].focus(), 100);
         }
     }
 
@@ -1896,7 +1896,8 @@ class SparkDeckApp {
         // Simple aria-label - question is announced separately when arriving
         this.quizAnswerInput.setAttribute('aria-label', 'Type your answer');
 
-        this.quizAnswerInput.focus();
+        // Delay focus so screen reader announces question first
+        setTimeout(() => this.quizAnswerInput.focus(), 100);
     }
 
     submitWrittenAnswer() {
