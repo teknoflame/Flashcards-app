@@ -956,10 +956,13 @@ class SparkDeckApp {
         menuItems.forEach(item => {
             item.addEventListener('click', (e) => {
                 const action = e.target.dataset.action;
+                // Close menu first before any action
+                this.closeDeckMenu(menuBtn, menu, false);
+                // For export, blur after menu closes so save dialog can focus
+                if (action === 'export') {
+                    document.activeElement?.blur();
+                }
                 this.handleDeckMenuAction(e.target);
-                // Don't restore focus for export - let the system save dialog take focus
-                const restoreFocus = action !== 'export';
-                this.closeDeckMenu(menuBtn, menu, restoreFocus);
             });
         });
 
@@ -1599,11 +1602,6 @@ SparkDeckApp.prototype.exportDeck = function(deckIndex) {
         return;
     }
 
-    // Blur active element so the system save dialog can properly receive focus
-    if (document.activeElement) {
-        document.activeElement.blur();
-    }
-
     const exportData = {
         version: '1.0',
         type: 'deck',
@@ -1618,7 +1616,7 @@ SparkDeckApp.prototype.exportDeck = function(deckIndex) {
 
     const filename = `${deck.name.replace(/[^a-z0-9]/gi, '-')}.json`;
     this._downloadJSON(exportData, filename);
-    this.announce(`Deck "${deck.name}" exported successfully.`);
+    this.announce(`Downloading ${filename}. Check your Downloads folder.`);
 };
 
 // Export all data (decks + folders) as JSON file
@@ -1628,10 +1626,8 @@ SparkDeckApp.prototype.exportAllData = function() {
         return;
     }
 
-    // Blur active element so the system save dialog can properly receive focus
-    if (document.activeElement) {
-        document.activeElement.blur();
-    }
+    // Blur so download notification can be announced
+    document.activeElement?.blur();
 
     const exportData = {
         version: '1.0',
@@ -1655,7 +1651,7 @@ SparkDeckApp.prototype.exportAllData = function() {
     const date = new Date().toISOString().split('T')[0];
     const filename = `sparkdeck-backup-${date}.json`;
     this._downloadJSON(exportData, filename);
-    this.announce(`All data exported: ${this.decks.length} decks, ${this.folders.length} folders.`);
+    this.announce(`Downloading ${filename}. Contains ${this.decks.length} decks and ${this.folders.length} folders.`);
 };
 
 // Helper: Download JSON data as file
