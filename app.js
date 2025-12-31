@@ -1721,6 +1721,9 @@ class SparkDeckApp {
         this.quizFeedback.classList.remove('correct', 'incorrect');
         this.quizAnswered = false;
 
+        // Announce question for screen readers before focusing on answers
+        this.announce(`Question ${current} of ${total}: ${this.currentQuizQuestion.question}`);
+
         if (questionType === 'mc') {
             this.showMultipleChoice(card);
         } else {
@@ -1734,7 +1737,6 @@ class SparkDeckApp {
 
         // Generate options
         const options = this.generateMCOptions(correctCard);
-        const question = this.currentQuizQuestion.question;
 
         // Clear previous options
         this.quizMcOptions.innerHTML = '';
@@ -1747,19 +1749,18 @@ class SparkDeckApp {
             btn.className = 'quiz-option';
             btn.dataset.correct = opt.isCorrect;
 
-            // Add aria-label that includes the question for screen readers
-            // This way users don't have to navigate away to hear the question
-            btn.setAttribute('aria-label', `${question} Option ${letter}: ${opt.answer}`);
+            // Simple aria-label - question is announced separately when arriving
+            btn.setAttribute('aria-label', `Option ${letter}: ${opt.answer}`);
 
             const letterSpan = document.createElement('span');
             letterSpan.className = 'quiz-option-letter';
-            letterSpan.setAttribute('aria-hidden', 'true'); // Hide from SR since it's in aria-label
+            letterSpan.setAttribute('aria-hidden', 'true');
             letterSpan.textContent = letter;
 
             const textSpan = document.createElement('span');
             textSpan.className = 'quiz-option-text';
-            textSpan.setAttribute('aria-hidden', 'true'); // Hide from SR since it's in aria-label
-            textSpan.textContent = opt.answer; // textContent safely escapes HTML
+            textSpan.setAttribute('aria-hidden', 'true');
+            textSpan.textContent = opt.answer;
 
             btn.appendChild(letterSpan);
             btn.appendChild(textSpan);
@@ -1892,9 +1893,8 @@ class SparkDeckApp {
         this.quizWrittenInput.classList.remove('hidden');
         this.quizAnswerInput.value = '';
 
-        // Set aria-label with question so screen readers announce it with the input
-        const question = this.currentQuizQuestion.question;
-        this.quizAnswerInput.setAttribute('aria-label', `${question} Type your answer`);
+        // Simple aria-label - question is announced separately when arriving
+        this.quizAnswerInput.setAttribute('aria-label', 'Type your answer');
 
         this.quizAnswerInput.focus();
     }
