@@ -592,6 +592,142 @@
             background: #e74c3c;
             color: white;
         }
+
+        /* Study/Quiz Mode Overlay */
+        .mode-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.98);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .mode-overlay.hidden { display: none; }
+        .mode-overlay-content {
+            width: 100%;
+            max-width: 700px;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            border: 2px solid #3498db;
+        }
+        .mode-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .mode-header h2 { margin: 0; color: #2c3e50; }
+        .mode-close-btn {
+            width: auto;
+            padding: 10px 20px;
+            background: #e74c3c;
+            border-color: #e74c3c;
+        }
+        .mode-close-btn:hover, .mode-close-btn:focus {
+            background: #c0392b;
+            border-color: #c0392b;
+        }
+        .study-controls { justify-content: center; margin-top: 20px; }
+
+        /* Quiz styles */
+        .quiz-question-container { margin: 20px 0; }
+        .quiz-question {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            text-align: center;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .quiz-options { display: flex; flex-direction: column; gap: 12px; }
+        .quiz-option {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            font-size: 16px;
+            width: 100%;
+        }
+        .quiz-option:hover, .quiz-option:focus {
+            border-color: #3498db;
+            background: #e3f2fd;
+            outline: none;
+        }
+        .quiz-option:focus { box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3); }
+        .quiz-option.correct { border-color: #27ae60; background: #d4edda; }
+        .quiz-option.incorrect { border-color: #e74c3c; background: #f8d7da; }
+        .quiz-option.disabled { pointer-events: none; opacity: 0.8; }
+        .quiz-option-letter {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: #3498db;
+            color: white;
+            border-radius: 50%;
+            font-weight: 600;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .quiz-option.correct .quiz-option-letter { background: #27ae60; }
+        .quiz-option.incorrect .quiz-option-letter { background: #e74c3c; }
+        .quiz-written { display: flex; flex-direction: column; gap: 15px; }
+        .quiz-written input { font-size: 18px; padding: 15px; text-align: center; }
+        .quiz-feedback { text-align: center; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .quiz-feedback.correct { background: #d4edda; border: 2px solid #27ae60; }
+        .quiz-feedback.incorrect { background: #f8d7da; border: 2px solid #e74c3c; }
+        #quiz-feedback-text { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+        .quiz-feedback.correct #quiz-feedback-text { color: #27ae60; }
+        .quiz-feedback.incorrect #quiz-feedback-text { color: #e74c3c; }
+        .quiz-correct-answer { font-size: 16px; color: #555; margin-bottom: 15px; }
+        #quiz-next-btn { width: auto; padding: 12px 30px; }
+        .quiz-results-content { text-align: center; }
+        .quiz-score { font-size: 64px; font-weight: 700; color: #3498db; margin: 30px 0 10px; }
+        .quiz-score.excellent { color: #27ae60; }
+        .quiz-score.good { color: #3498db; }
+        .quiz-score.needs-work { color: #f39c12; }
+        .quiz-score.poor { color: #e74c3c; }
+        .quiz-score-breakdown { font-size: 18px; color: #555; margin-bottom: 30px; }
+        .quiz-results-actions { justify-content: center; }
+        #quiz-retry-btn { background: #27ae60; border-color: #27ae60; }
+        #quiz-retry-btn:hover, #quiz-retry-btn:focus { background: #219a52; border-color: #219a52; }
+        .quiz-mode-options { display: flex; flex-direction: column; gap: 12px; }
+        .quiz-mode-option {
+            display: flex;
+            align-items: flex-start;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .quiz-mode-option:hover { border-color: #3498db; background: #e3f2fd; }
+        .quiz-mode-option:has(input:checked) { border-color: #3498db; background: #e3f2fd; }
+        .quiz-mode-option:has(input:focus) { box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3); }
+        .quiz-mode-option input[type="radio"] { width: auto; margin-right: 12px; margin-top: 3px; flex-shrink: 0; }
+        .quiz-mode-label { display: flex; flex-direction: column; gap: 4px; }
+        .quiz-mode-label strong { font-size: 16px; color: #2c3e50; }
+        .quiz-mode-label span { font-size: 14px; color: #6c757d; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -610,7 +746,6 @@
         <nav class="nav-tabs" role="tablist">
             <button class="nav-tab active" role="tab" data-tab="decks" aria-selected="true">My Decks</button>
             <button class="nav-tab" role="tab" data-tab="create">Create Deck</button>
-            <button class="nav-tab" role="tab" data-tab="study">Study Mode</button>
             <button class="nav-tab" role="tab" data-tab="settings">Settings</button>
         </nav>
 
@@ -697,37 +832,6 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     </div>
                 </div>
             </section>
-            <!-- Study Mode Tab -->
-            <section class="tab-content" id="study-tab" role="tabpanel">
-                <div id="no-study-content">
-                    <div class="empty-state">
-                        <h3>No Active Study Session</h3>
-                        <p>Select a deck from "My Decks" to start studying.</p>
-                    </div>
-                </div>
-
-                <div id="study-mode-content" class="hidden">
-                    <h2>Study Mode</h2>
-                    <div class="progress" id="study-progress" aria-live="polite"></div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
-                    </div>
-                    
-                    <div class="flashcard" id="flashcard" tabindex="0" role="button" aria-label="Flashcard - press Space or Enter to flip">
-                        <div class="flashcard-content" id="card-content">Click a deck to start studying!</div>
-                    </div>
-
-                    <div class="button-group">
-                        <button id="prev-btn" type="button">Previous Card</button>
-                        <button id="flip-btn" type="button">Flip Card</button>
-                        <button id="next-btn" type="button">Next Card</button>
-                    </div>
-
-                    <div class="button-group">
-                        <button id="end-study-btn" type="button">End Study Session</button>
-                    </div>
-                </div>
-            </section>
 
             <!-- Settings Tab -->
             <section class="tab-content" id="settings-tab" role="tabpanel">
@@ -753,6 +857,79 @@ Mitochondria are the powerhouses of the cell."></textarea>
         </main>
     </div>
 
+    <!-- Study Mode Overlay -->
+    <div id="study-overlay" class="mode-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="study-overlay-title">
+        <div class="mode-overlay-content">
+            <header class="mode-header">
+                <h2 id="study-overlay-title">Study Mode</h2>
+                <button id="end-study-btn" type="button" class="mode-close-btn" aria-label="End study session">End Study</button>
+            </header>
+            <div class="progress" id="study-progress" aria-live="polite"></div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+            </div>
+
+            <div class="flashcard" id="flashcard" tabindex="0" role="button" aria-label="Flashcard - press Space or Enter to flip">
+                <div class="flashcard-content" id="card-content"></div>
+            </div>
+
+            <div class="button-group study-controls">
+                <button id="prev-btn" type="button">Previous</button>
+                <button id="flip-btn" type="button">Flip Card</button>
+                <button id="next-btn" type="button">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Mode Overlay -->
+    <div id="quiz-overlay" class="mode-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="quiz-overlay-title">
+        <div class="mode-overlay-content">
+            <header class="mode-header">
+                <h2 id="quiz-overlay-title">Quiz Mode</h2>
+                <button id="end-quiz-btn" type="button" class="mode-close-btn" aria-label="End quiz">End Quiz</button>
+            </header>
+            <div class="progress" id="quiz-progress" aria-live="polite"></div>
+            <div class="progress-bar">
+                <div class="progress-fill quiz-progress-fill" id="quiz-progress-fill" style="width: 0%"></div>
+            </div>
+
+            <div id="quiz-question-container" class="quiz-question-container">
+                <div class="quiz-question" id="quiz-question"></div>
+
+                <!-- Multiple Choice Options -->
+                <div id="quiz-mc-options" class="quiz-options hidden" role="radiogroup" aria-label="Answer options">
+                </div>
+
+                <!-- Written Answer Input -->
+                <div id="quiz-written-input" class="quiz-written hidden">
+                    <label for="quiz-answer-input" class="sr-only">Your answer</label>
+                    <input type="text" id="quiz-answer-input" placeholder="Type your answer..." autocomplete="off">
+                    <button id="quiz-submit-answer" type="button">Submit Answer</button>
+                </div>
+
+                <!-- Feedback Area -->
+                <div id="quiz-feedback" class="quiz-feedback hidden" role="status" aria-live="polite">
+                    <div id="quiz-feedback-text"></div>
+                    <div id="quiz-correct-answer" class="quiz-correct-answer"></div>
+                    <button id="quiz-next-btn" type="button">Next Question</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Results Overlay -->
+    <div id="quiz-results-overlay" class="mode-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="quiz-results-title">
+        <div class="mode-overlay-content quiz-results-content">
+            <h2 id="quiz-results-title">Quiz Complete!</h2>
+            <div class="quiz-score" id="quiz-score"></div>
+            <div class="quiz-score-breakdown" id="quiz-score-breakdown"></div>
+            <div class="button-group quiz-results-actions">
+                <button id="quiz-retry-btn" type="button">Try Again</button>
+                <button id="quiz-back-btn" type="button">Back to Decks</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Help Modal (dialog) -->
     <dialog id="help-modal" aria-labelledby="help-title" aria-describedby="help-description">
         <div class="modal-dialog">
@@ -775,13 +952,26 @@ Mitochondria are the powerhouses of the cell."></textarea>
                 </ul>
 
                 <h2>Deck Actions</h2>
-                <p>Click the ⋮ menu button on any deck for options:</p>
+                <p>Each deck has Study and Quiz buttons:</p>
                 <ul>
-                    <li><strong>Study:</strong> Start studying the deck</li>
+                    <li><strong>Study:</strong> Flip through shuffled flashcards at your own pace</li>
+                    <li><strong>Quiz:</strong> Test yourself with multiple choice, written answers, or mixed mode</li>
+                </ul>
+                <p>Click the ⋮ menu button for more options:</p>
+                <ul>
                     <li><strong>Export:</strong> Download the deck as a JSON file</li>
                     <li><strong>Move to Folder:</strong> Organize your deck</li>
                     <li><strong>Delete:</strong> Remove the deck</li>
                 </ul>
+
+                <h2>Quiz Mode</h2>
+                <p>Quiz mode tests your knowledge with instant feedback and scoring:</p>
+                <ul>
+                    <li><strong>Multiple Choice:</strong> Pick the correct answer from 4 options</li>
+                    <li><strong>Written:</strong> Type your answer (accepts similar answers)</li>
+                    <li><strong>Mixed:</strong> Random combination of both types</li>
+                </ul>
+                <p>You need at least 4 cards in a deck to start a quiz.</p>
 
                 <h2>Keyboard Shortcuts</h2>
                 <h3>Navigation</h3>
@@ -792,13 +982,19 @@ Mitochondria are the powerhouses of the cell."></textarea>
                     <li><strong>S:</strong> Start studying first deck</li>
                     <li><strong>1-9:</strong> Quick study deck by number</li>
                     <li><strong>?:</strong> Open Help</li>
-                    <li><strong>Escape:</strong> Close dialogs or end study session</li>
+                    <li><strong>Escape:</strong> Close dialogs, end study, or end quiz</li>
                 </ul>
 
                 <h3>During Study</h3>
                 <ul>
                     <li><strong>← / →:</strong> Previous / Next card</li>
                     <li><strong>Space/Enter:</strong> Flip the current card</li>
+                </ul>
+
+                <h3>During Quiz</h3>
+                <ul>
+                    <li><strong>Enter:</strong> Submit written answer</li>
+                    <li><strong>Escape:</strong> End quiz early</li>
                 </ul>
 
                 <h3>General</h3>
@@ -817,7 +1013,8 @@ Mitochondria are the powerhouses of the cell."></textarea>
 
                 <h2>Studying Cards</h2>
                 <ul>
-                    <li>Select a deck from “My Decks”, then choose “Study This Deck”.</li>
+                    <li>Select a deck from "My Decks", then choose "Study".</li>
+                    <li>Cards are automatically shuffled for better learning.</li>
                     <li>Use Flip to switch between front and back.</li>
                     <li>Use Previous/Next or arrow keys to move through cards.</li>
                     <li>Progress updates are announced and shown visually.</li>

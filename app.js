@@ -88,6 +88,14 @@ class SparkDeckApp {
         this.showingFront = true;
         this.tempCards = [];
         this.creationMode = null;
+
+        // Quiz state
+        this.quizMode = null; // 'mc', 'written', 'mixed'
+        this.quizCards = []; // Shuffled cards for quiz
+        this.quizCurrentIndex = 0;
+        this.quizScore = 0;
+        this.quizAnswered = false;
+        this.originalDeckIndex = null; // Track which deck we're quizzing
         this.initializeElements();
         this.setupEventListeners();
         this.populateFolderOptions(this.deckFolder);
@@ -146,9 +154,8 @@ class SparkDeckApp {
         this.saveDeckBtn = document.getElementById('save-deck-btn');
         this.cancelDeckBtn = document.getElementById('cancel-deck-btn');
 
-        // Study elements
-        this.studyModeContent = document.getElementById('study-mode-content');
-        this.noStudyContent = document.getElementById('no-study-content');
+        // Study overlay elements
+        this.studyOverlay = document.getElementById('study-overlay');
         this.studyProgress = document.getElementById('study-progress');
         this.progressFill = document.getElementById('progress-fill');
         this.flashcard = document.getElementById('flashcard');
@@ -157,6 +164,28 @@ class SparkDeckApp {
         this.flipBtn = document.getElementById('flip-btn');
         this.nextBtn = document.getElementById('next-btn');
         this.endStudyBtn = document.getElementById('end-study-btn');
+
+        // Quiz overlay elements
+        this.quizOverlay = document.getElementById('quiz-overlay');
+        this.quizProgress = document.getElementById('quiz-progress');
+        this.quizProgressFill = document.getElementById('quiz-progress-fill');
+        this.quizQuestion = document.getElementById('quiz-question');
+        this.quizMcOptions = document.getElementById('quiz-mc-options');
+        this.quizWrittenInput = document.getElementById('quiz-written-input');
+        this.quizAnswerInput = document.getElementById('quiz-answer-input');
+        this.quizSubmitAnswer = document.getElementById('quiz-submit-answer');
+        this.quizFeedback = document.getElementById('quiz-feedback');
+        this.quizFeedbackText = document.getElementById('quiz-feedback-text');
+        this.quizCorrectAnswer = document.getElementById('quiz-correct-answer');
+        this.quizNextBtn = document.getElementById('quiz-next-btn');
+        this.endQuizBtn = document.getElementById('end-quiz-btn');
+
+        // Quiz results elements
+        this.quizResultsOverlay = document.getElementById('quiz-results-overlay');
+        this.quizScoreEl = document.getElementById('quiz-score');
+        this.quizScoreBreakdown = document.getElementById('quiz-score-breakdown');
+        this.quizRetryBtn = document.getElementById('quiz-retry-btn');
+        this.quizBackBtn = document.getElementById('quiz-back-btn');
 
         // Other elements
         this.decksList = document.getElementById('decks-list');
@@ -235,7 +264,7 @@ class SparkDeckApp {
             }
 
             // Study mode shortcuts
-            if (this.currentDeck) {
+            if (this.currentDeck && !this.quizMode) {
                 switch(e.key) {
                     case 'ArrowLeft':
                         e.preventDefault();
@@ -253,6 +282,18 @@ class SparkDeckApp {
                             this.endStudy();
                         }
                         break;
+                }
+            }
+
+            // Quiz mode shortcuts
+            if (this.quizMode) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    if (this.isHelpOpen()) {
+                        this.closeHelpModal();
+                    } else {
+                        this.endQuiz();
+                    }
                 }
             }
 
@@ -336,6 +377,31 @@ class SparkDeckApp {
         // Sound toggle
         if (this.muteToggleBtn) {
             this.muteToggleBtn.addEventListener('click', () => this.toggleMute());
+        }
+
+        // Quiz mode event listeners
+        if (this.endQuizBtn) {
+            this.endQuizBtn.addEventListener('click', () => this.endQuiz());
+        }
+        if (this.quizSubmitAnswer) {
+            this.quizSubmitAnswer.addEventListener('click', () => this.submitWrittenAnswer());
+        }
+        if (this.quizAnswerInput) {
+            this.quizAnswerInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.submitWrittenAnswer();
+                }
+            });
+        }
+        if (this.quizNextBtn) {
+            this.quizNextBtn.addEventListener('click', () => this.nextQuizQuestion());
+        }
+        if (this.quizRetryBtn) {
+            this.quizRetryBtn.addEventListener('click', () => this.retryQuiz());
+        }
+        if (this.quizBackBtn) {
+            this.quizBackBtn.addEventListener('click', () => this.exitQuizResults());
         }
     }
 
@@ -929,6 +995,7 @@ class SparkDeckApp {
                          aria-labelledby="${menuBtnId}"
                          hidden>
                         <button type="button" role="menuitem" class="deck-menu-item" data-action="study" data-deck-index="${deckIndex}">Study</button>
+                        <button type="button" role="menuitem" class="deck-menu-item" data-action="quiz" data-deck-index="${deckIndex}" ${deck.cards.length < 4 ? 'disabled' : ''}>Quiz</button>
                         <button type="button" role="menuitem" class="deck-menu-item" data-action="export" data-deck-index="${deckIndex}">Export</button>
                         <button type="button" role="menuitem" class="deck-menu-item" data-action="move" data-deck-index="${deckIndex}">Move to Folder…</button>
                         <div class="deck-menu-separator" role="separator"></div>
@@ -938,7 +1005,8 @@ class SparkDeckApp {
             </div>
             <p>${deck.cards.length} cards • ${deck.category}</p>
             <div class="button-group deck-actions">
-                <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study This Deck</button>
+                <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study</button>
+                <button type="button" onclick="app.promptQuizMode(${deckIndex})" aria-label="Quiz deck ${deck.name}" ${deck.cards.length < 4 ? 'disabled title="Need at least 4 cards for quiz"' : ''}>Quiz</button>
             </div>
         `;
 
@@ -1063,6 +1131,9 @@ class SparkDeckApp {
         switch (action) {
             case 'study':
                 this.startStudy(deckIndex);
+                break;
+            case 'quiz':
+                this.promptQuizMode(deckIndex);
                 break;
             case 'export':
                 this.exportDeck(deckIndex);
@@ -1302,18 +1373,34 @@ class SparkDeckApp {
         this.announce(`Deck "${deck.name}" deleted.`);
     }
 
+    // Shuffle array in place (Fisher-Yates algorithm)
+    shuffleArray(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    }
+
     startStudy(deckIndex) {
         this.soundManager.play('enterStudy');
-        this.currentDeck = this.decks[deckIndex];
+        const deck = this.decks[deckIndex];
+
+        // Create a shuffled copy of the cards
+        this.currentDeck = {
+            ...deck,
+            cards: this.shuffleArray(deck.cards)
+        };
         this.currentCardIndex = 0;
         this.showingFront = true;
 
-        this.switchTab('study');
-        this.studyModeContent.classList.remove('hidden');
-        this.noStudyContent.classList.add('hidden');
+        // Show study overlay
+        this.studyOverlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
 
         this.displayCurrentCard();
-        this.announce(`Started studying "${this.currentDeck.name}" with ${this.currentDeck.cards.length} cards.`);
+        this.announce(`Started studying "${deck.name}" with ${deck.cards.length} shuffled cards.`);
         this.flashcard.focus();
     }
 
@@ -1373,10 +1460,349 @@ class SparkDeckApp {
     endStudy() {
         this.soundManager.play('exitStudy');
         this.currentDeck = null;
-        this.switchTab('decks');
-        this.studyModeContent.classList.add('hidden');
-        this.noStudyContent.classList.remove('hidden');
+
+        // Hide study overlay
+        this.studyOverlay.classList.add('hidden');
+        document.body.style.overflow = '';
+
         this.announce('Study session ended.');
+    }
+
+    // ===== Quiz Mode Methods =====
+
+    async promptQuizMode(deckIndex) {
+        const deck = this.decks[deckIndex];
+        if (!deck || deck.cards.length < 4) {
+            this.announce('You need at least 4 cards to start a quiz.');
+            return;
+        }
+
+        this.originalDeckIndex = deckIndex;
+
+        // Show quiz mode selection modal
+        const mode = await this.openQuizModeModal();
+        if (!mode) return; // Cancelled
+
+        this.startQuiz(deckIndex, mode);
+    }
+
+    openQuizModeModal() {
+        return new Promise((resolve) => {
+            this.modalTitle.textContent = 'Choose Quiz Mode';
+            this.modalDesc.textContent = 'Select how you want to be quizzed.';
+            this.modalContent.innerHTML = `
+                <div class="quiz-mode-options" role="radiogroup" aria-label="Quiz mode options">
+                    <label class="quiz-mode-option">
+                        <input type="radio" name="quiz-mode" value="mc" checked>
+                        <span class="quiz-mode-label">
+                            <strong>Multiple Choice</strong>
+                            <span>Pick the correct answer from 4 options</span>
+                        </span>
+                    </label>
+                    <label class="quiz-mode-option">
+                        <input type="radio" name="quiz-mode" value="written">
+                        <span class="quiz-mode-label">
+                            <strong>Written</strong>
+                            <span>Type your answer</span>
+                        </span>
+                    </label>
+                    <label class="quiz-mode-option">
+                        <input type="radio" name="quiz-mode" value="mixed">
+                        <span class="quiz-mode-label">
+                            <strong>Mixed</strong>
+                            <span>Random mix of both types</span>
+                        </span>
+                    </label>
+                </div>
+            `;
+            this.modalConfirmBtn.textContent = 'Start Quiz';
+            this.modalCancelBtn.textContent = 'Cancel';
+
+            const firstRadio = this.modalContent.querySelector('input[type="radio"]');
+            const cleanup = this._openModalCommon({
+                initialFocus: firstRadio,
+                onConfirm: () => {
+                    const selected = this.modalContent.querySelector('input[name="quiz-mode"]:checked');
+                    cleanup();
+                    resolve(selected ? selected.value : null);
+                },
+                onCancel: () => {
+                    cleanup();
+                    resolve(null);
+                },
+            });
+        });
+    }
+
+    startQuiz(deckIndex, mode) {
+        this.soundManager.play('enterStudy');
+        const deck = this.decks[deckIndex];
+
+        this.quizMode = mode;
+        this.quizCards = this.shuffleArray(deck.cards);
+        this.quizCurrentIndex = 0;
+        this.quizScore = 0;
+        this.quizAnswered = false;
+        this.originalDeckIndex = deckIndex;
+
+        // Show quiz overlay
+        this.quizOverlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        this.displayQuizQuestion();
+        this.announce(`Started ${mode === 'mc' ? 'multiple choice' : mode === 'written' ? 'written' : 'mixed'} quiz on "${deck.name}" with ${deck.cards.length} questions.`);
+    }
+
+    displayQuizQuestion() {
+        const card = this.quizCards[this.quizCurrentIndex];
+        const total = this.quizCards.length;
+        const current = this.quizCurrentIndex + 1;
+        const progress = Math.round((current / total) * 100);
+
+        // Update progress
+        this.quizProgress.textContent = `Question ${current} of ${total}`;
+        this.quizProgressFill.style.width = `${progress}%`;
+
+        // Display question (card front)
+        this.quizQuestion.textContent = card.front;
+
+        // Determine question type for this card
+        let questionType = this.quizMode;
+        if (this.quizMode === 'mixed') {
+            questionType = Math.random() < 0.5 ? 'mc' : 'written';
+        }
+
+        // Reset UI
+        this.quizFeedback.classList.add('hidden');
+        this.quizFeedback.classList.remove('correct', 'incorrect');
+        this.quizAnswered = false;
+
+        if (questionType === 'mc') {
+            this.showMultipleChoice(card);
+        } else {
+            this.showWrittenInput();
+        }
+    }
+
+    showMultipleChoice(correctCard) {
+        this.quizMcOptions.classList.remove('hidden');
+        this.quizWrittenInput.classList.add('hidden');
+
+        // Generate options
+        const options = this.generateMCOptions(correctCard);
+
+        this.quizMcOptions.innerHTML = options.map((opt, idx) => {
+            const letter = String.fromCharCode(65 + idx); // A, B, C, D
+            return `
+                <button type="button" class="quiz-option" data-answer="${opt.answer}" data-correct="${opt.isCorrect}">
+                    <span class="quiz-option-letter">${letter}</span>
+                    <span class="quiz-option-text">${opt.answer}</span>
+                </button>
+            `;
+        }).join('');
+
+        // Add event listeners to options
+        const optionBtns = this.quizMcOptions.querySelectorAll('.quiz-option');
+        optionBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.selectMCOption(btn, optionBtns));
+        });
+
+        // Focus first option
+        if (optionBtns.length > 0) {
+            optionBtns[0].focus();
+        }
+    }
+
+    generateMCOptions(correctCard) {
+        const correctAnswer = correctCard.back;
+        const otherCards = this.quizCards.filter(c => c.back !== correctAnswer);
+
+        // Shuffle and pick 3 distractors
+        const shuffledOthers = this.shuffleArray(otherCards);
+        const distractors = shuffledOthers.slice(0, 3).map(c => c.back);
+
+        // If not enough unique distractors, duplicate some
+        while (distractors.length < 3 && otherCards.length > 0) {
+            distractors.push(otherCards[distractors.length % otherCards.length].back);
+        }
+
+        // Create options array
+        const options = [
+            { answer: correctAnswer, isCorrect: true },
+            ...distractors.map(d => ({ answer: d, isCorrect: false }))
+        ];
+
+        // Shuffle options
+        return this.shuffleArray(options);
+    }
+
+    selectMCOption(selectedBtn, allBtns) {
+        if (this.quizAnswered) return;
+        this.quizAnswered = true;
+
+        const isCorrect = selectedBtn.dataset.correct === 'true';
+
+        // Mark all options as disabled
+        allBtns.forEach(btn => {
+            btn.classList.add('disabled');
+            if (btn.dataset.correct === 'true') {
+                btn.classList.add('correct');
+            }
+        });
+
+        if (isCorrect) {
+            this.quizScore++;
+            this.soundManager.play('correct');
+            selectedBtn.classList.add('correct');
+        } else {
+            this.soundManager.play('wrong');
+            selectedBtn.classList.add('incorrect');
+        }
+
+        const correctAnswer = this.quizCards[this.quizCurrentIndex].back;
+        this.showQuizFeedback(isCorrect, correctAnswer);
+    }
+
+    showWrittenInput() {
+        this.quizMcOptions.classList.add('hidden');
+        this.quizWrittenInput.classList.remove('hidden');
+        this.quizAnswerInput.value = '';
+        this.quizAnswerInput.focus();
+    }
+
+    submitWrittenAnswer() {
+        if (this.quizAnswered) return;
+
+        const userAnswer = this.quizAnswerInput.value.trim();
+        if (!userAnswer) {
+            this.announce('Please enter an answer.');
+            return;
+        }
+
+        this.quizAnswered = true;
+        const correctAnswer = this.quizCards[this.quizCurrentIndex].back;
+        const isCorrect = this.checkWrittenAnswer(userAnswer, correctAnswer);
+
+        if (isCorrect) {
+            this.quizScore++;
+            this.soundManager.play('correct');
+        } else {
+            this.soundManager.play('wrong');
+        }
+
+        this.showQuizFeedback(isCorrect, correctAnswer);
+    }
+
+    checkWrittenAnswer(userAnswer, correctAnswer) {
+        // Normalize both strings for comparison
+        const normalize = (str) => str.toLowerCase().trim()
+            .replace(/[^\w\s]/g, '') // Remove punctuation
+            .replace(/\s+/g, ' '); // Normalize whitespace
+
+        const normalizedUser = normalize(userAnswer);
+        const normalizedCorrect = normalize(correctAnswer);
+
+        // Exact match
+        if (normalizedUser === normalizedCorrect) return true;
+
+        // Check if user answer contains all key words from correct answer (80%+ match)
+        const correctWords = normalizedCorrect.split(' ').filter(w => w.length > 2);
+        const userWords = normalizedUser.split(' ');
+
+        if (correctWords.length === 0) return normalizedUser === normalizedCorrect;
+
+        const matchedWords = correctWords.filter(word =>
+            userWords.some(uw => uw.includes(word) || word.includes(uw))
+        );
+
+        return matchedWords.length / correctWords.length >= 0.8;
+    }
+
+    showQuizFeedback(isCorrect, correctAnswer) {
+        this.quizFeedback.classList.remove('hidden', 'correct', 'incorrect');
+        this.quizFeedback.classList.add(isCorrect ? 'correct' : 'incorrect');
+
+        this.quizFeedbackText.textContent = isCorrect ? 'Correct!' : 'Incorrect';
+
+        if (!isCorrect) {
+            this.quizCorrectAnswer.textContent = `The correct answer was: ${correctAnswer}`;
+        } else {
+            this.quizCorrectAnswer.textContent = '';
+        }
+
+        this.quizNextBtn.focus();
+        this.announce(isCorrect ? 'Correct!' : `Incorrect. The correct answer was: ${correctAnswer}`);
+    }
+
+    nextQuizQuestion() {
+        this.quizCurrentIndex++;
+
+        if (this.quizCurrentIndex >= this.quizCards.length) {
+            this.showQuizResults();
+        } else {
+            this.displayQuizQuestion();
+        }
+    }
+
+    showQuizResults() {
+        // Hide quiz overlay
+        this.quizOverlay.classList.add('hidden');
+
+        // Show results overlay
+        this.quizResultsOverlay.classList.remove('hidden');
+
+        const total = this.quizCards.length;
+        const correct = this.quizScore;
+        const percentage = Math.round((correct / total) * 100);
+
+        // Determine score category
+        let scoreClass = 'good';
+        if (percentage >= 90) scoreClass = 'excellent';
+        else if (percentage >= 70) scoreClass = 'good';
+        else if (percentage >= 50) scoreClass = 'needs-work';
+        else scoreClass = 'poor';
+
+        this.quizScoreEl.textContent = `${percentage}%`;
+        this.quizScoreEl.className = `quiz-score ${scoreClass}`;
+
+        this.quizScoreBreakdown.textContent = `You got ${correct} out of ${total} questions correct.`;
+
+        this.soundManager.play(percentage >= 70 ? 'correct' : 'wrong');
+        this.announce(`Quiz complete! You scored ${percentage}%. ${correct} out of ${total} correct.`);
+
+        this.quizRetryBtn.focus();
+    }
+
+    retryQuiz() {
+        // Hide results
+        this.quizResultsOverlay.classList.add('hidden');
+
+        // Restart with same deck and mode
+        this.startQuiz(this.originalDeckIndex, this.quizMode);
+    }
+
+    endQuiz() {
+        this.soundManager.play('exitStudy');
+
+        // Reset quiz state
+        this.quizMode = null;
+        this.quizCards = [];
+        this.quizCurrentIndex = 0;
+        this.quizScore = 0;
+
+        // Hide overlays
+        this.quizOverlay.classList.add('hidden');
+        this.quizResultsOverlay.classList.add('hidden');
+        document.body.style.overflow = '';
+
+        this.announce('Quiz ended.');
+    }
+
+    exitQuizResults() {
+        this.quizMode = null;
+        this.quizCards = [];
+        this.quizResultsOverlay.classList.add('hidden');
+        document.body.style.overflow = '';
     }
 
     // ===== Modal Helpers =====
