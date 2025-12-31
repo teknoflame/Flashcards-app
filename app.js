@@ -1599,6 +1599,11 @@ SparkDeckApp.prototype.exportDeck = function(deckIndex) {
         return;
     }
 
+    // Blur active element so the system save dialog can properly receive focus
+    if (document.activeElement) {
+        document.activeElement.blur();
+    }
+
     const exportData = {
         version: '1.0',
         type: 'deck',
@@ -1621,6 +1626,11 @@ SparkDeckApp.prototype.exportAllData = function() {
     if (this.decks.length === 0 && this.folders.length === 0) {
         this.announce('No data to export.');
         return;
+    }
+
+    // Blur active element so the system save dialog can properly receive focus
+    if (document.activeElement) {
+        document.activeElement.blur();
     }
 
     const exportData = {
