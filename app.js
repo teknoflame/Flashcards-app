@@ -1616,7 +1616,11 @@ SparkDeckApp.prototype.exportDeck = function(deckIndex) {
 
     const filename = `${deck.name.replace(/[^a-z0-9]/gi, '-')}.json`;
     this._downloadJSON(exportData, filename);
-    this.announce(`Downloading ${filename}. Check your Downloads folder.`);
+
+    // Delay announcement to let menu close/blur events settle for screen readers
+    setTimeout(() => {
+        this.announce(`Downloading ${filename}. Check your Downloads folder.`);
+    }, 150);
 };
 
 // Export all data (decks + folders) as JSON file
