@@ -96,6 +96,8 @@ class SparkDeckApp {
         this.quizScore = 0;
         this.quizAnswered = false;
         this.originalDeckIndex = null; // Track which deck we're quizzing
+        this.currentQuizQuestion = null; // Smart question data for current card
+        this.currentQuestionType = null; // 'mc' or 'written' for current question
         this.initializeElements();
         this.setupEventListeners();
         this.populateFolderOptions(this.deckFolder);
@@ -1547,6 +1549,8 @@ class SparkDeckApp {
         this.quizScore = 0;
         this.quizAnswered = false;
         this.originalDeckIndex = deckIndex;
+        this.currentQuizQuestion = null;
+        this.currentQuestionType = null;
 
         // Show quiz overlay
         this.quizOverlay.classList.remove('hidden');
@@ -1554,6 +1558,127 @@ class SparkDeckApp {
 
         this.displayQuizQuestion();
         this.announce(`Started ${mode === 'mc' ? 'multiple choice' : mode === 'written' ? 'written' : 'mixed'} quiz on "${deck.name}" with ${deck.cards.length} questions.`);
+    }
+
+    /**
+     * Generate a smart exam-like question from a flashcard
+     * Detects patterns like "ABBREV (Full Term)" or "Term: Definition"
+     * Returns an object with question text, expected answer, and question type
+     */
+    generateSmartQuestion(card) {
+        const front = card.front.trim();
+        const back = card.back.trim();
+
+        // Pattern 1: Abbreviation with expansion - "LLM (Large Language Model)"
+        // Also handles reverse: "Large Language Model (LLM)"
+        const abbrevPattern = /^([A-Z]{2,10})\s*\(([^)]+)\)(.*)$/i;
+        const reverseAbbrevPattern = /^(.+?)\s*\(([A-Z]{2,10})\)(.*)$/i;
+
+        let abbrevMatch = front.match(abbrevPattern);
+        let reverseMatch = front.match(reverseAbbrevPattern);
+
+        if (abbrevMatch) {
+            // Format: "LLM (Large Language Model) definition..."
+            const abbrev = abbrevMatch[1].toUpperCase();
+            const fullTerm = abbrevMatch[2].trim();
+            const extraInfo = abbrevMatch[3].trim();
+
+            // Randomly choose between question types for variety
+            const questionTypes = [
+                { question: `What does ${abbrev} stand for?`, answer: fullTerm, type: 'expansion' },
+                { question: `What is ${fullTerm.toLowerCase().startsWith('a ') || fullTerm.toLowerCase().startsWith('an ') ? '' : this.getArticle(fullTerm)} ${fullTerm}?`, answer: back, type: 'definition' }
+            ];
+
+            // For written mode, prefer the expansion question (shorter answer)
+            const selected = questionTypes[Math.floor(Math.random() * questionTypes.length)];
+            return {
+                question: selected.question,
+                answer: selected.answer,
+                answerForDisplay: selected.type === 'expansion' ? fullTerm : back,
+                originalFront: front,
+                originalBack: back
+            };
+        }
+
+        if (reverseMatch && reverseMatch[2].match(/^[A-Z]{2,10}$/)) {
+            // Format: "Large Language Model (LLM) definition..."
+            const fullTerm = reverseMatch[1].trim();
+            const abbrev = reverseMatch[2].toUpperCase();
+
+            const questionTypes = [
+                { question: `What is the abbreviation for ${fullTerm}?`, answer: abbrev, type: 'abbreviation' },
+                { question: `What is ${this.getArticle(fullTerm)} ${fullTerm}?`, answer: back, type: 'definition' }
+            ];
+
+            const selected = questionTypes[Math.floor(Math.random() * questionTypes.length)];
+            return {
+                question: selected.question,
+                answer: selected.answer,
+                answerForDisplay: selected.type === 'abbreviation' ? abbrev : back,
+                originalFront: front,
+                originalBack: back
+            };
+        }
+
+        // Pattern 2: Term with colon definition - "Photosynthesis: The process..."
+        const colonPattern = /^([^:]+):\s*(.+)$/;
+        const colonMatch = front.match(colonPattern);
+        if (colonMatch) {
+            const term = colonMatch[1].trim();
+            return {
+                question: `What is ${this.getArticle(term)} ${term}?`,
+                answer: back || colonMatch[2].trim(),
+                answerForDisplay: back || colonMatch[2].trim(),
+                originalFront: front,
+                originalBack: back
+            };
+        }
+
+        // Pattern 3: Question already ends with ? - use as-is
+        if (front.endsWith('?')) {
+            return {
+                question: front,
+                answer: back,
+                answerForDisplay: back,
+                originalFront: front,
+                originalBack: back
+            };
+        }
+
+        // Pattern 4: Short term (1-4 words) - likely a vocabulary term
+        const wordCount = front.split(/\s+/).length;
+        if (wordCount <= 4 && !front.includes('.')) {
+            return {
+                question: `What is ${this.getArticle(front)} ${front}?`,
+                answer: back,
+                answerForDisplay: back,
+                originalFront: front,
+                originalBack: back
+            };
+        }
+
+        // Default: Use front as-is (it might be a complete question or statement)
+        return {
+            question: front,
+            answer: back,
+            answerForDisplay: back,
+            originalFront: front,
+            originalBack: back
+        };
+    }
+
+    /**
+     * Get the appropriate article (a/an) for a word
+     */
+    getArticle(word) {
+        if (!word) return '';
+        const firstChar = word.trim().charAt(0).toLowerCase();
+        const vowels = ['a', 'e', 'i', 'o', 'u'];
+        // Special cases for common exceptions
+        const useAn = vowels.includes(firstChar) ||
+                      word.match(/^(hour|honest|heir|honor)/i) ||
+                      word.match(/^[AEFHILMNORSX]$/i); // Single letters that sound like vowels
+        return useAn ? 'an' : 'a';
     }
 
     displayQuizQuestion() {
@@ -1566,14 +1691,16 @@ class SparkDeckApp {
         this.quizProgress.textContent = `Question ${current} of ${total}`;
         this.quizProgressFill.style.width = `${progress}%`;
 
-        // Display question (card front)
-        this.quizQuestion.textContent = card.front;
+        // Generate smart question
+        this.currentQuizQuestion = this.generateSmartQuestion(card);
+        this.quizQuestion.textContent = this.currentQuizQuestion.question;
 
         // Determine question type for this card
         let questionType = this.quizMode;
         if (this.quizMode === 'mixed') {
             questionType = Math.random() < 0.5 ? 'mc' : 'written';
         }
+        this.currentQuestionType = questionType;
 
         // Reset UI
         this.quizFeedback.classList.add('hidden');
@@ -1676,7 +1803,8 @@ class SparkDeckApp {
             selectedBtn.classList.add('incorrect');
         }
 
-        const correctAnswer = this.quizCards[this.quizCurrentIndex].back;
+        // Use smart question answer for feedback display
+        const correctAnswer = this.currentQuizQuestion.answerForDisplay;
         this.showQuizFeedback(isCorrect, correctAnswer);
     }
 
@@ -1697,7 +1825,9 @@ class SparkDeckApp {
         }
 
         this.quizAnswered = true;
-        const correctAnswer = this.quizCards[this.quizCurrentIndex].back;
+        // Use smart question answer for validation
+        const correctAnswer = this.currentQuizQuestion.answer;
+        const displayAnswer = this.currentQuizQuestion.answerForDisplay;
         const isCorrect = this.checkWrittenAnswer(userAnswer, correctAnswer);
 
         if (isCorrect) {
@@ -1707,7 +1837,7 @@ class SparkDeckApp {
             this.soundManager.play('wrong');
         }
 
-        this.showQuizFeedback(isCorrect, correctAnswer);
+        this.showQuizFeedback(isCorrect, displayAnswer);
     }
 
     checkWrittenAnswer(userAnswer, correctAnswer) {
