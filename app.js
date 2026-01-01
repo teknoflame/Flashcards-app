@@ -82,17 +82,23 @@ class SparkDeckApp {
         this.migrateOldLocalStorage(); // Migrate from old StudyFlow keys
         this.decks = this.loadDecks();
         this.folders = this.loadFolders();
+        this.settings = this.loadSettings();
+        this.stats = this.loadStats();
         this.currentFolderId = null; // null = root view, folderId = viewing specific folder
         this.currentDeck = null;
         this.currentCardIndex = 0;
         this.showingFront = true;
         this.tempCards = [];
         this.creationMode = null;
+        this.currentStatsPeriod = 'lifetime';
         this.initializeElements();
         this.setupEventListeners();
         this.populateFolderOptions(this.deckFolder);
         this.renderDecks();
         this.updateMuteButton();
+        this.updateStatsToggleButton();
+        this.applyStatsTabVisibility();
+        this.renderStats();
     }
 
     // Migrate old StudyFlow localStorage keys to SparkDeck
@@ -175,6 +181,15 @@ class SparkDeckApp {
 
         // Sound control
         this.muteToggleBtn = document.getElementById('mute-toggle-btn');
+
+        // Stats elements
+        this.statsNavTab = document.getElementById('stats-nav-tab');
+        this.statsToggleBtn = document.getElementById('stats-toggle-btn');
+        this.statsPeriodBtns = document.querySelectorAll('.stats-period-btn');
+        this.statsDecksCount = document.getElementById('stats-decks-count');
+        this.statsSessionsCount = document.getElementById('stats-sessions-count');
+        this.statsCardsStudied = document.getElementById('stats-cards-studied');
+        this.statsSummary = document.getElementById('stats-summary');
 
         // Generic modal elements (used for prompts/confirmations)
         this.modal = document.getElementById('app-modal');
@@ -337,6 +352,16 @@ class SparkDeckApp {
         if (this.muteToggleBtn) {
             this.muteToggleBtn.addEventListener('click', () => this.toggleMute());
         }
+
+        // Stats toggle
+        if (this.statsToggleBtn) {
+            this.statsToggleBtn.addEventListener('click', () => this.toggleStatsTab());
+        }
+
+        // Stats period filter buttons
+        this.statsPeriodBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.setStatsPeriod(btn.dataset.period));
+        });
     }
 
     announce(message) {
@@ -381,6 +406,11 @@ class SparkDeckApp {
         // Update tab content
         this.tabContents.forEach(content => content.classList.remove('active'));
         document.getElementById(`${tabName}-tab`).classList.add('active');
+
+        // Re-render stats when switching to stats tab
+        if (tabName === 'stats') {
+            this.renderStats();
+        }
 
         this.announce(`Switched to ${tabName} tab`);
     }
@@ -434,6 +464,187 @@ class SparkDeckApp {
         } catch (error) {
             console.warn('Could not save folders:', error);
             return false;
+        }
+    }
+
+    // Settings persistence
+    loadSettings() {
+        try {
+            const saved = localStorage.getItem('sparkdeck-settings');
+            const defaults = { statsEnabled: true };
+            return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
+        } catch (error) {
+            console.warn('Could not load settings:', error);
+            return { statsEnabled: true };
+        }
+    }
+
+    saveSettings() {
+        try {
+            localStorage.setItem('sparkdeck-settings', JSON.stringify(this.settings));
+            return true;
+        } catch (error) {
+            console.warn('Could not save settings:', error);
+            return false;
+        }
+    }
+
+    // Stats persistence
+    loadStats() {
+        try {
+            const saved = localStorage.getItem('sparkdeck-stats');
+            const defaults = { studySessions: [] };
+            return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
+        } catch (error) {
+            console.warn('Could not load stats:', error);
+            return { studySessions: [] };
+        }
+    }
+
+    saveStats() {
+        try {
+            localStorage.setItem('sparkdeck-stats', JSON.stringify(this.stats));
+            return true;
+        } catch (error) {
+            console.warn('Could not save stats:', error);
+            return false;
+        }
+    }
+
+    // Stats tab toggle
+    toggleStatsTab() {
+        this.settings.statsEnabled = !this.settings.statsEnabled;
+        this.saveSettings();
+        this.updateStatsToggleButton();
+        this.applyStatsTabVisibility();
+        this.announce(this.settings.statsEnabled ? 'Stats tab enabled' : 'Stats tab disabled');
+    }
+
+    updateStatsToggleButton() {
+        if (!this.statsToggleBtn) return;
+        const enabled = this.settings.statsEnabled;
+        this.statsToggleBtn.textContent = enabled ? 'Enabled' : 'Disabled';
+        this.statsToggleBtn.setAttribute('aria-label',
+            enabled ? 'Stats tab enabled. Click to disable.' : 'Stats tab disabled. Click to enable.'
+        );
+    }
+
+    applyStatsTabVisibility() {
+        if (!this.statsNavTab) return;
+        if (this.settings.statsEnabled) {
+            this.statsNavTab.classList.remove('hidden');
+            this.statsNavTab.removeAttribute('aria-hidden');
+        } else {
+            this.statsNavTab.classList.add('hidden');
+            this.statsNavTab.setAttribute('aria-hidden', 'true');
+            // If currently on stats tab, switch to decks
+            if (document.querySelector('[data-tab="stats"].active')) {
+                this.switchTab('decks');
+            }
+        }
+    }
+
+    // Stats period selection
+    setStatsPeriod(period) {
+        this.currentStatsPeriod = period;
+
+        // Update button states
+        this.statsPeriodBtns.forEach(btn => {
+            const isActive = btn.dataset.period === period;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive.toString());
+        });
+
+        this.renderStats();
+        this.announce(`Viewing ${period} stats`);
+    }
+
+    // Record a study session
+    recordStudySession(deckName, cardCount) {
+        const session = {
+            timestamp: new Date().toISOString(),
+            deckName: deckName,
+            cardsStudied: cardCount
+        };
+        this.stats.studySessions.push(session);
+        this.saveStats();
+    }
+
+    // Calculate stats for a given period
+    getStatsForPeriod(period) {
+        const now = new Date();
+        let startDate;
+
+        switch (period) {
+            case 'daily':
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'weekly':
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - 7);
+                break;
+            case 'monthly':
+                startDate = new Date(now);
+                startDate.setMonth(now.getMonth() - 1);
+                break;
+            case 'lifetime':
+            default:
+                startDate = new Date(0); // Beginning of time
+                break;
+        }
+
+        // Filter study sessions
+        const sessions = this.stats.studySessions.filter(s => {
+            const sessionDate = new Date(s.timestamp);
+            return sessionDate >= startDate;
+        });
+
+        // Count decks created in period
+        const decksCreated = this.decks.filter(d => {
+            if (!d.created) return period === 'lifetime';
+            const deckDate = new Date(d.created);
+            return deckDate >= startDate;
+        }).length;
+
+        // Sum cards studied
+        const cardsStudied = sessions.reduce((sum, s) => sum + (s.cardsStudied || 0), 0);
+
+        return {
+            decksCreated,
+            studySessions: sessions.length,
+            cardsStudied
+        };
+    }
+
+    // Render stats
+    renderStats() {
+        const stats = this.getStatsForPeriod(this.currentStatsPeriod);
+
+        if (this.statsDecksCount) {
+            this.statsDecksCount.textContent = stats.decksCreated;
+        }
+        if (this.statsSessionsCount) {
+            this.statsSessionsCount.textContent = stats.studySessions;
+        }
+        if (this.statsCardsStudied) {
+            this.statsCardsStudied.textContent = stats.cardsStudied;
+        }
+
+        // Update summary message
+        if (this.statsSummary) {
+            const periodLabels = {
+                lifetime: 'all time',
+                weekly: 'the past 7 days',
+                monthly: 'the past 30 days',
+                daily: 'today'
+            };
+            const periodLabel = periodLabels[this.currentStatsPeriod];
+
+            if (stats.studySessions === 0 && stats.decksCreated === 0) {
+                this.statsSummary.innerHTML = `<p>No activity recorded for ${periodLabel}. Start studying to track your progress!</p>`;
+            } else {
+                this.statsSummary.innerHTML = `<p>During ${periodLabel}, you created ${stats.decksCreated} deck${stats.decksCreated !== 1 ? 's' : ''}, completed ${stats.studySessions} study session${stats.studySessions !== 1 ? 's' : ''}, and studied ${stats.cardsStudied} card${stats.cardsStudied !== 1 ? 's' : ''}.</p>`;
+            }
         }
     }
 
@@ -1307,6 +1518,10 @@ class SparkDeckApp {
         this.currentDeck = this.decks[deckIndex];
         this.currentCardIndex = 0;
         this.showingFront = true;
+
+        // Record the study session for stats
+        this.recordStudySession(this.currentDeck.name, this.currentDeck.cards.length);
+        this.renderStats();
 
         this.switchTab('study');
         this.studyModeContent.classList.remove('hidden');
