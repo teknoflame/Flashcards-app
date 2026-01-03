@@ -768,6 +768,33 @@ button:hover {
     color: white;
 }
 
+/* Stats Tab Styles */
+.stats-period-filter {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.stats-period-btn {
+    width: auto;
+    padding: 10px 20px;
+    background: transparent;
+    color: #3498db;
+    border: 2px solid #3498db;
+    font-weight: 600;
+}
+
+.stats-period-btn:hover {
+    background: rgba(52, 152, 219, 0.1);
+}
+
+.stats-period-btn.active,
+.stats-period-btn[aria-pressed="true"] {
+    background: #3498db;
+    color: white;
+}
+
 .deck-menu-separator {
     height: 1px;
     background: #dee2e6;
@@ -802,6 +829,27 @@ button:hover {
 }
 
 .quiz-mode-option:hover {
+    border-color: #3498db;
+    background: #e3f2fd;
+}
+
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stats-card {
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 30px 20px;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.stats-card:hover {
     border-color: #3498db;
     background: #e3f2fd;
 }
@@ -842,4 +890,31 @@ button:hover {
 button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.stats-card-value {
+    font-size: 48px;
+    font-weight: 700;
+    color: #3498db;
+    line-height: 1;
+    margin-bottom: 10px;
+}
+
+.stats-card-label {
+    font-size: 16px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.stats-summary {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+}
+
+.stats-summary p {
+    margin: 0;
 }
