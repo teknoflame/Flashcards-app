@@ -98,6 +98,10 @@ class SparkDeckApp {
         this.originalDeckIndex = null; // Track which deck we're quizzing
         this.currentQuizQuestion = null; // Smart question data for current card
         this.currentQuestionType = null; // 'mc' or 'written' for current question
+
+        // Editing state
+        this.editingDeckIndex = null;  // Index of deck being edited (null = creating new)
+        this.editingCardIndex = null;  // Index of card being edited (null = adding new)
         this.initializeElements();
         this.setupEventListeners();
         this.populateFolderOptions(this.deckFolder);
@@ -155,6 +159,9 @@ class SparkDeckApp {
         this.previewCards = document.getElementById('preview-cards');
         this.saveDeckBtn = document.getElementById('save-deck-btn');
         this.cancelDeckBtn = document.getElementById('cancel-deck-btn');
+        this.createTabHeading = document.getElementById('create-tab-heading');
+        this.cardMediaInput = document.getElementById('card-media');
+        this.cancelCardEditBtn = document.getElementById('cancel-card-edit-btn');
 
         // Study overlay elements
         this.studyOverlay = document.getElementById('study-overlay');
@@ -234,6 +241,9 @@ class SparkDeckApp {
         this.addCardBtn.addEventListener('click', () => this.addManualCard());
         this.saveDeckBtn.addEventListener('click', () => this.saveDeck());
         this.cancelDeckBtn.addEventListener('click', () => this.cancelDeck());
+        if (this.cancelCardEditBtn) {
+            this.cancelCardEditBtn.addEventListener('click', () => this.cancelEditCard());
+        }
         this.deckFolder.addEventListener('change', (e) => this.onDeckFolderSelectChanged(e));
 
         // Study mode
@@ -998,6 +1008,7 @@ class SparkDeckApp {
                          hidden>
                         <button type="button" role="menuitem" class="deck-menu-item" data-action="study" data-deck-index="${deckIndex}">Study</button>
                         <button type="button" role="menuitem" class="deck-menu-item" data-action="quiz" data-deck-index="${deckIndex}" ${deck.cards.length < 4 ? 'disabled' : ''}>Quiz</button>
+                        <button type="button" role="menuitem" class="deck-menu-item" data-action="edit" data-deck-index="${deckIndex}">Edit Cards</button>
                         <button type="button" role="menuitem" class="deck-menu-item" data-action="export" data-deck-index="${deckIndex}">Export</button>
                         <button type="button" role="menuitem" class="deck-menu-item" data-action="move" data-deck-index="${deckIndex}">Move to Folder…</button>
                         <div class="deck-menu-separator" role="separator"></div>
@@ -1137,6 +1148,9 @@ class SparkDeckApp {
             case 'quiz':
                 this.promptQuizMode(deckIndex);
                 break;
+            case 'edit':
+                this.editDeck(deckIndex);
+                break;
             case 'export':
                 this.exportDeck(deckIndex);
                 break;
@@ -1147,6 +1161,104 @@ class SparkDeckApp {
                 await this.deleteDeck(deckIndex);
                 break;
         }
+    }
+
+    editDeck(deckIndex) {
+        const deck = this.decks[deckIndex];
+        if (!deck) return;
+
+        // Store editing state
+        this.editingDeckIndex = deckIndex;
+        this.editingCardIndex = null;
+
+        // Load deck data into form
+        this.deckName.value = deck.name;
+        this.deckCategory.value = deck.category || 'Other';
+        this.populateFolderOptions(this.deckFolder, deck.folderId || '');
+        this.deckFolder.value = deck.folderId || '';
+
+        // Load cards into tempCards (create copies to avoid mutating original)
+        this.tempCards = deck.cards.map(card => ({ ...card }));
+
+        // Switch to Create tab and show manual mode
+        this.switchTab('create');
+        this.setCreationMode('manual');
+
+        // Update UI for edit mode
+        this.updateCreateTabForEditMode();
+
+        // Show card preview
+        this.showPreview();
+
+        this.announce(`Editing deck "${deck.name}" with ${deck.cards.length} cards.`);
+        this.deckName.focus();
+    }
+
+    updateCreateTabForEditMode() {
+        const isEditing = this.editingDeckIndex !== null;
+        const isEditingCard = this.editingCardIndex !== null;
+
+        // Update heading
+        if (this.createTabHeading) {
+            if (isEditing) {
+                const deck = this.decks[this.editingDeckIndex];
+                this.createTabHeading.textContent = `Edit Deck: ${deck ? deck.name : ''}`;
+            } else {
+                this.createTabHeading.textContent = 'Create New Deck';
+            }
+        }
+
+        // Update save button
+        if (this.saveDeckBtn) {
+            this.saveDeckBtn.textContent = isEditing ? 'Save Changes' : 'Save Deck';
+        }
+
+        // Update add card button
+        if (this.addCardBtn) {
+            this.addCardBtn.textContent = isEditingCard ? 'Update Card' : 'Add This Card';
+        }
+
+        // Show/hide cancel card edit button
+        if (this.cancelCardEditBtn) {
+            this.cancelCardEditBtn.classList.toggle('hidden', !isEditingCard);
+        }
+    }
+
+    cancelEditCard() {
+        this.editingCardIndex = null;
+        this.cardFront.value = '';
+        this.cardBack.value = '';
+        if (this.cardMediaInput) this.cardMediaInput.value = '';
+        this.updateCreateTabForEditMode();
+        this.showPreview();
+        this.announce('Card edit cancelled.');
+        this.cardFront.focus();
+    }
+
+    editCard(index) {
+        if (index < 0 || index >= this.tempCards.length) return;
+
+        const card = this.tempCards[index];
+
+        // Store editing state
+        this.editingCardIndex = index;
+
+        // Populate form with card data
+        this.cardFront.value = card.front;
+        this.cardBack.value = card.back;
+        if (this.cardMediaInput) {
+            this.cardMediaInput.value = card.mediaUrl || '';
+        }
+
+        // Show manual mode if not already visible
+        this.setCreationMode('manual');
+
+        // Update UI
+        this.updateCreateTabForEditMode();
+        this.showPreview();
+
+        this.announce(`Editing card ${index + 1}. Update the fields and click Update Card.`);
+        this.cardFront.focus();
     }
 
     async promptMoveDeck(deckIndex) {
@@ -1257,6 +1369,7 @@ class SparkDeckApp {
     addManualCard() {
         const front = this.cardFront.value.trim();
         const back = this.cardBack.value.trim();
+        const mediaUrl = this.cardMediaInput ? this.cardMediaInput.value.trim() : '';
 
         if (!front || !back) {
             this.announce('Please fill in both the front and back of the card.');
@@ -1265,13 +1378,29 @@ class SparkDeckApp {
             return;
         }
 
-        this.tempCards.push({ front, back });
+        const cardData = { front, back };
+        if (mediaUrl) {
+            cardData.mediaUrl = mediaUrl;
+        }
 
+        if (this.editingCardIndex !== null) {
+            // Update existing card
+            this.tempCards[this.editingCardIndex] = cardData;
+            this.announce(`Card ${this.editingCardIndex + 1} updated.`);
+            this.editingCardIndex = null;
+        } else {
+            // Add new card
+            this.tempCards.push(cardData);
+            this.announce(`Card added. You now have ${this.tempCards.length} cards.`);
+        }
+
+        // Clear form
         this.cardFront.value = '';
         this.cardBack.value = '';
+        if (this.cardMediaInput) this.cardMediaInput.value = '';
 
+        this.updateCreateTabForEditMode();
         this.showPreview();
-        this.announce(`Card added. You now have ${this.tempCards.length} cards.`);
         this.cardFront.focus();
     }
 
@@ -1280,13 +1409,30 @@ class SparkDeckApp {
         this.tempCards.forEach((card, index) => {
             const cardElement = document.createElement('div');
             cardElement.className = 'deck-card';
+
+            // Highlight card being edited
+            if (this.editingCardIndex === index) {
+                cardElement.classList.add('editing');
+            }
+
+            // Escape HTML to prevent XSS
+            const escapeHtml = (str) => {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            };
+
             cardElement.innerHTML = `
                 <div class="deck-header">
                     <span>Card ${index + 1}</span>
-                    <button type="button" onclick="app.removeCard(${index})">Remove</button>
+                    <div class="card-actions">
+                        <button type="button" onclick="app.editCard(${index})" aria-label="Edit card ${index + 1}">Edit</button>
+                        <button type="button" onclick="app.removeCard(${index})" aria-label="Remove card ${index + 1}">Remove</button>
+                    </div>
                 </div>
-                <p><strong>Front:</strong> ${card.front}</p>
-                <p><strong>Back:</strong> ${card.back}</p>
+                <p><strong>Front:</strong> ${escapeHtml(card.front)}</p>
+                <p><strong>Back:</strong> ${escapeHtml(card.back)}</p>
+                ${card.mediaUrl ? `<p><strong>Media:</strong> <a href="${escapeHtml(card.mediaUrl)}" target="_blank" rel="noopener">View media</a></p>` : ''}
             `;
             this.previewCards.appendChild(cardElement);
         });
@@ -1295,6 +1441,21 @@ class SparkDeckApp {
     }
 
     removeCard(index) {
+        // Handle editing state when removing cards
+        if (this.editingCardIndex !== null) {
+            if (this.editingCardIndex === index) {
+                // Removing the card being edited - cancel edit
+                this.editingCardIndex = null;
+                this.cardFront.value = '';
+                this.cardBack.value = '';
+                if (this.cardMediaInput) this.cardMediaInput.value = '';
+                this.updateCreateTabForEditMode();
+            } else if (this.editingCardIndex > index) {
+                // A card before the one being edited was removed - adjust index
+                this.editingCardIndex--;
+            }
+        }
+
         this.tempCards.splice(index, 1);
         if (this.tempCards.length === 0) {
             this.cardsPreview.classList.add('hidden');
@@ -1320,24 +1481,50 @@ class SparkDeckApp {
             return;
         }
 
-        const deck = { name, category, folderId, cards: this.tempCards, created: new Date().toISOString() };
+        if (this.editingDeckIndex !== null) {
+            // Update existing deck
+            const existingDeck = this.decks[this.editingDeckIndex];
+            existingDeck.name = name;
+            existingDeck.category = category;
+            existingDeck.folderId = folderId;
+            existingDeck.cards = this.tempCards;
+            // Keep original created date
 
-        this.decks.push(deck);
-        if (this.saveDecks()) {
-            this.announce(`Deck "${name}" saved successfully with ${this.tempCards.length} cards.`);
-            this.renderDecks();
-            this.resetCreateForm();
-            this.switchTab('decks');
+            if (this.saveDecks()) {
+                this.announce(`Deck "${name}" updated successfully with ${this.tempCards.length} cards.`);
+                this.renderDecks();
+                this.resetCreateForm();
+                this.switchTab('decks');
+            } else {
+                this.announce('Error saving deck. Please try again.');
+            }
         } else {
-            this.announce('Error saving deck. Please try again.');
+            // Create new deck
+            const deck = { name, category, folderId, cards: this.tempCards, created: new Date().toISOString() };
+
+            this.decks.push(deck);
+            if (this.saveDecks()) {
+                this.announce(`Deck "${name}" saved successfully with ${this.tempCards.length} cards.`);
+                this.renderDecks();
+                this.resetCreateForm();
+                this.switchTab('decks');
+            } else {
+                this.announce('Error saving deck. Please try again.');
+            }
         }
     }
 
     async cancelDeck() {
-        if (this.tempCards.length > 0) {
+        const isEditing = this.editingDeckIndex !== null;
+        const title = isEditing ? 'Discard changes?' : 'Discard deck?';
+        const message = isEditing
+            ? 'Are you sure you want to cancel? All unsaved changes will be lost.'
+            : 'Are you sure you want to cancel? All unsaved cards will be lost.';
+
+        if (this.tempCards.length > 0 || isEditing) {
             const ok = await this.openConfirmModal({
-                title: 'Discard deck?',
-                message: 'Are you sure you want to cancel? All unsaved cards will be lost.',
+                title,
+                message,
                 confirmText: 'Discard',
             });
             if (!ok) return;
@@ -1352,13 +1539,17 @@ class SparkDeckApp {
         this.notesInput.value = '';
         this.cardFront.value = '';
         this.cardBack.value = '';
+        if (this.cardMediaInput) this.cardMediaInput.value = '';
         this.tempCards = [];
         this.creationMode = null;
+        this.editingDeckIndex = null;
+        this.editingCardIndex = null;
         this.autoInput.classList.add('hidden');
         this.manualInput.classList.add('hidden');
         this.cardsPreview.classList.add('hidden');
         this.populateFolderOptions(this.deckFolder);
         this.deckFolder.value = '';
+        this.updateCreateTabForEditMode();
     }
 
     async deleteDeck(index) {
