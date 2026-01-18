@@ -229,6 +229,7 @@ class SparkDeckApp {
         this.statsSessionsCount = document.getElementById('stats-sessions-count');
         this.statsCardsStudied = document.getElementById('stats-cards-studied');
         this.statsSummary = document.getElementById('stats-summary');
+        this.resetStatsBtn = document.getElementById('reset-stats-btn');
 
         // Generic modal elements (used for prompts/confirmations)
         this.modal = document.getElementById('app-modal');
@@ -437,6 +438,11 @@ class SparkDeckApp {
             this.statsToggleBtn.addEventListener('click', () => this.toggleStatsTab());
         }
 
+        // Reset stats button
+        if (this.resetStatsBtn) {
+            this.resetStatsBtn.addEventListener('click', () => this.resetStats());
+        }
+
         // Stats period filter buttons
         this.statsPeriodBtns.forEach(btn => {
             btn.addEventListener('click', () => this.setStatsPeriod(btn.dataset.period));
@@ -588,6 +594,21 @@ class SparkDeckApp {
             console.warn('Could not save stats:', error);
             return false;
         }
+    }
+
+    async resetStats() {
+        const confirmed = await this.openConfirmModal({
+            title: 'Reset Stats',
+            message: 'Are you sure you want to reset all your study statistics? This will clear your study session history. This action cannot be undone.',
+            confirmText: 'Reset',
+        });
+
+        if (!confirmed) return;
+
+        this.stats = { studySessions: [] };
+        this.saveStats();
+        this.renderStats();
+        this.announce('Stats have been reset');
     }
 
     // Stats tab toggle
