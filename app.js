@@ -1159,6 +1159,8 @@ class SparkDeckApp {
         const folderButton = document.createElement('button');
         folderButton.type = 'button';
         folderButton.className = 'folder-card-button';
+        folderButton.setAttribute('role', 'heading');
+        folderButton.setAttribute('aria-level', '4');
 
         // Count subfolders
         const subfolderCount = this.folders.filter(f => f.parentFolderId === folder.id).length;
