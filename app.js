@@ -114,6 +114,7 @@ class SparkDeckApp {
         this.updateMuteButton();
         this.updateStatsToggleButton();
         this.applyStatsTabVisibility();
+        this.applyAllVisionSettings();
         this.renderStats();
     }
 
@@ -220,6 +221,12 @@ class SparkDeckApp {
 
         // Sound control
         this.muteToggleBtn = document.getElementById('mute-toggle-btn');
+
+        // Vision settings elements
+        this.darkModeBtn = document.getElementById('dark-mode-btn');
+        this.fontSizeBtn = document.getElementById('font-size-btn');
+        this.highContrastBtn = document.getElementById('high-contrast-btn');
+        this.reducedMotionBtn = document.getElementById('reduced-motion-btn');
 
         // Stats elements
         this.statsNavTab = document.getElementById('stats-nav-tab');
@@ -408,6 +415,20 @@ class SparkDeckApp {
             this.muteToggleBtn.addEventListener('click', () => this.toggleMute());
         }
 
+        // Vision settings toggles
+        if (this.darkModeBtn) {
+            this.darkModeBtn.addEventListener('click', () => this.toggleDarkMode());
+        }
+        if (this.fontSizeBtn) {
+            this.fontSizeBtn.addEventListener('click', () => this.cycleFontSize());
+        }
+        if (this.highContrastBtn) {
+            this.highContrastBtn.addEventListener('click', () => this.toggleHighContrast());
+        }
+        if (this.reducedMotionBtn) {
+            this.reducedMotionBtn.addEventListener('click', () => this.toggleReducedMotion());
+        }
+
         // Quiz mode event listeners
         if (this.endQuizBtn) {
             this.endQuizBtn.addEventListener('click', () => this.endQuiz());
@@ -556,11 +577,24 @@ class SparkDeckApp {
     loadSettings() {
         try {
             const saved = localStorage.getItem('sparkdeck-settings');
-            const defaults = { statsEnabled: true };
+            const defaults = {
+                statsEnabled: true,
+                // Vision settings
+                darkMode: false,
+                fontSize: 'medium', // 'small', 'medium', 'large', 'extra-large'
+                highContrast: false,
+                reducedMotion: false
+            };
             return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
         } catch (error) {
             console.warn('Could not load settings:', error);
-            return { statsEnabled: true };
+            return {
+                statsEnabled: true,
+                darkMode: false,
+                fontSize: 'medium',
+                highContrast: false,
+                reducedMotion: false
+            };
         }
     }
 
@@ -572,6 +606,120 @@ class SparkDeckApp {
             console.warn('Could not save settings:', error);
             return false;
         }
+    }
+
+    // Vision settings methods
+    toggleDarkMode() {
+        this.settings.darkMode = !this.settings.darkMode;
+        this.saveSettings();
+        this.applyDarkMode();
+        this.updateDarkModeButton();
+        this.announce(this.settings.darkMode ? 'Dark mode enabled' : 'Dark mode disabled');
+    }
+
+    applyDarkMode() {
+        if (this.settings.darkMode) {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+    }
+
+    updateDarkModeButton() {
+        if (!this.darkModeBtn) return;
+        const isOn = this.settings.darkMode;
+        this.darkModeBtn.textContent = isOn ? 'On' : 'Off';
+        this.darkModeBtn.setAttribute('aria-label', isOn ? 'Dark mode enabled. Click to disable.' : 'Dark mode disabled. Click to enable.');
+    }
+
+    cycleFontSize() {
+        const sizes = ['small', 'medium', 'large', 'extra-large'];
+        const currentIndex = sizes.indexOf(this.settings.fontSize);
+        const nextIndex = (currentIndex + 1) % sizes.length;
+        this.settings.fontSize = sizes[nextIndex];
+        this.saveSettings();
+        this.applyFontSize();
+        this.updateFontSizeButton();
+        const sizeLabels = { 'small': 'Small', 'medium': 'Medium', 'large': 'Large', 'extra-large': 'Extra Large' };
+        this.announce(`Font size: ${sizeLabels[this.settings.fontSize]}`);
+    }
+
+    applyFontSize() {
+        // Remove all font size classes
+        document.body.classList.remove('font-small', 'font-medium', 'font-large', 'font-extra-large');
+        // Add the current font size class
+        document.body.classList.add(`font-${this.settings.fontSize}`);
+    }
+
+    updateFontSizeButton() {
+        if (!this.fontSizeBtn) return;
+        const sizeLabels = { 'small': 'Small', 'medium': 'Medium', 'large': 'Large', 'extra-large': 'Extra Large' };
+        const label = sizeLabels[this.settings.fontSize] || 'Medium';
+        this.fontSizeBtn.textContent = label;
+        this.fontSizeBtn.setAttribute('aria-label', `Font size: ${label}. Click to change.`);
+    }
+
+    toggleHighContrast() {
+        this.settings.highContrast = !this.settings.highContrast;
+        this.saveSettings();
+        this.applyHighContrast();
+        this.updateHighContrastButton();
+        this.announce(this.settings.highContrast ? 'High contrast enabled' : 'High contrast disabled');
+    }
+
+    applyHighContrast() {
+        if (this.settings.highContrast) {
+            document.body.classList.add('high-contrast');
+            // High contrast overrides dark mode for maximum visibility
+            document.body.classList.remove('dark-mode');
+        } else {
+            document.body.classList.remove('high-contrast');
+            // Restore dark mode if it was enabled
+            if (this.settings.darkMode) {
+                document.body.classList.add('dark-mode');
+            }
+        }
+    }
+
+    updateHighContrastButton() {
+        if (!this.highContrastBtn) return;
+        const isOn = this.settings.highContrast;
+        this.highContrastBtn.textContent = isOn ? 'On' : 'Off';
+        this.highContrastBtn.setAttribute('aria-label', isOn ? 'High contrast enabled. Click to disable.' : 'High contrast disabled. Click to enable.');
+    }
+
+    toggleReducedMotion() {
+        this.settings.reducedMotion = !this.settings.reducedMotion;
+        this.saveSettings();
+        this.applyReducedMotion();
+        this.updateReducedMotionButton();
+        this.announce(this.settings.reducedMotion ? 'Reduced motion enabled' : 'Reduced motion disabled');
+    }
+
+    applyReducedMotion() {
+        if (this.settings.reducedMotion) {
+            document.body.classList.add('reduced-motion');
+        } else {
+            document.body.classList.remove('reduced-motion');
+        }
+    }
+
+    updateReducedMotionButton() {
+        if (!this.reducedMotionBtn) return;
+        const isOn = this.settings.reducedMotion;
+        this.reducedMotionBtn.textContent = isOn ? 'On' : 'Off';
+        this.reducedMotionBtn.setAttribute('aria-label', isOn ? 'Reduced motion enabled. Click to disable.' : 'Reduced motion disabled. Click to enable.');
+    }
+
+    applyAllVisionSettings() {
+        this.applyDarkMode();
+        this.applyFontSize();
+        this.applyHighContrast();
+        this.applyReducedMotion();
+        this.updateDarkModeButton();
+        this.updateFontSizeButton();
+        this.updateHighContrastButton();
+        this.updateReducedMotionButton();
     }
 
     // Stats persistence

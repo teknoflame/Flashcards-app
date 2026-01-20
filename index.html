@@ -828,6 +828,607 @@
         .stats-summary p {
             margin: 0;
         }
+
+        /* ========================================
+           Vision Accessibility Settings
+           ======================================== */
+
+        /* CSS Custom Properties for theming */
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: white;
+            --bg-tertiary: #f8f9fa;
+            --text-primary: #333;
+            --text-secondary: #2c3e50;
+            --text-muted: #6c757d;
+            --text-label: #34495e;
+            --border-color: #dee2e6;
+            --border-input: #bdc3c7;
+            --accent-color: #3498db;
+            --accent-hover: #2980b9;
+            --success-color: #27ae60;
+            --success-bg: #d4edda;
+            --danger-color: #e74c3c;
+            --danger-bg: #f8d7da;
+            --warning-color: #f39c12;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --overlay-bg: rgba(255, 255, 255, 0.98);
+            --modal-overlay: rgba(0, 0, 0, 0.4);
+        }
+
+        /* Dark Mode */
+        body.dark-mode {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e8e8e8;
+            --text-secondary: #c9d6df;
+            --text-muted: #a0a0a0;
+            --text-label: #c9d6df;
+            --border-color: #3a3a5c;
+            --border-input: #4a4a6a;
+            --accent-color: #52b6e8;
+            --accent-hover: #7bc8f0;
+            --success-color: #4ade80;
+            --success-bg: #1a3a2a;
+            --danger-color: #f87171;
+            --danger-bg: #3a1a1a;
+            --warning-color: #fbbf24;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+            --overlay-bg: rgba(22, 33, 62, 0.98);
+            --modal-overlay: rgba(0, 0, 0, 0.6);
+        }
+
+        body.dark-mode {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .container {
+            background: var(--bg-secondary);
+            box-shadow: 0 2px 10px var(--shadow-color);
+        }
+
+        body.dark-mode h1, body.dark-mode h2, body.dark-mode h3 {
+            color: var(--text-secondary);
+        }
+
+        body.dark-mode label {
+            color: var(--text-label);
+        }
+
+        body.dark-mode input, body.dark-mode textarea, body.dark-mode select {
+            background: var(--bg-tertiary);
+            border-color: var(--border-input);
+            color: var(--text-primary);
+        }
+
+        body.dark-mode input::placeholder, body.dark-mode textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        body.dark-mode button {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        body.dark-mode button:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        body.dark-mode .nav-tab {
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .nav-tab:hover, body.dark-mode .nav-tab:focus {
+            background: var(--bg-tertiary);
+        }
+
+        body.dark-mode .nav-tab.active {
+            border-bottom-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        body.dark-mode .nav-tabs {
+            border-bottom-color: var(--border-color);
+        }
+
+        body.dark-mode .deck-card, body.dark-mode .folder-card {
+            background: var(--bg-tertiary);
+            border-color: var(--border-color);
+        }
+
+        body.dark-mode .deck-card:hover, body.dark-mode .folder-card:hover {
+            border-color: var(--accent-color);
+            background: var(--bg-secondary);
+        }
+
+        body.dark-mode .deck-title, body.dark-mode .folder-card-title {
+            color: var(--text-secondary);
+        }
+
+        body.dark-mode .folder-card-count {
+            color: var(--text-muted);
+        }
+
+        body.dark-mode .flashcard {
+            background: var(--bg-secondary);
+            border-color: var(--accent-color);
+        }
+
+        body.dark-mode .flashcard-content {
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .progress {
+            color: var(--text-secondary);
+        }
+
+        body.dark-mode .progress-bar {
+            background: var(--bg-tertiary);
+        }
+
+        body.dark-mode .settings-section {
+            background: var(--bg-tertiary);
+            border-color: var(--border-color);
+        }
+
+        body.dark-mode .setting-description {
+            color: var(--text-muted);
+        }
+
+        body.dark-mode .keyboard-help {
+            background: var(--bg-tertiary);
+            border-color: var(--border-color);
+        }
+
+        body.dark-mode .empty-state {
+            color: var(--text-muted);
+        }
+
+        body.dark-mode .modal-overlay {
+            background: var(--modal-overlay);
+        }
+
+        body.dark-mode .modal, body.dark-mode .mode-overlay-content {
+            background: var(--bg-secondary);
+            border-color: var(--accent-color);
+        }
+
+        body.dark-mode .mode-overlay {
+            background: var(--overlay-bg);
+        }
+
+        body.dark-mode .mode-header {
+            border-bottom-color: var(--border-color);
+        }
+
+        body.dark-mode .deck-menu {
+            background: var(--bg-secondary);
+            border-color: var(--accent-color);
+        }
+
+        body.dark-mode .deck-menu-item {
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .deck-menu-item:hover, body.dark-mode .deck-menu-item:focus {
+            background: var(--bg-tertiary);
+        }
+
+        body.dark-mode .deck-menu-separator {
+            background: var(--border-color);
+        }
+
+        body.dark-mode .quiz-question {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        body.dark-mode .quiz-option {
+            background: var(--bg-tertiary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .quiz-option:hover, body.dark-mode .quiz-option:focus {
+            border-color: var(--accent-color);
+            background: var(--bg-secondary);
+        }
+
+        body.dark-mode .quiz-feedback.correct {
+            background: var(--success-bg);
+            border-color: var(--success-color);
+        }
+
+        body.dark-mode .quiz-feedback.incorrect {
+            background: var(--danger-bg);
+            border-color: var(--danger-color);
+        }
+
+        body.dark-mode .stats-card {
+            background: var(--bg-tertiary);
+            border-color: var(--border-color);
+        }
+
+        body.dark-mode .stats-card:hover {
+            border-color: var(--accent-color);
+            background: var(--bg-secondary);
+        }
+
+        body.dark-mode .stats-card-value {
+            color: var(--accent-color);
+        }
+
+        body.dark-mode .stats-card-label {
+            color: var(--text-muted);
+        }
+
+        body.dark-mode .stats-summary {
+            background: var(--bg-tertiary);
+            border-color: var(--border-color);
+            color: var(--text-muted);
+        }
+
+        body.dark-mode .stats-period-btn {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        body.dark-mode .stats-period-btn:hover {
+            background: rgba(82, 182, 232, 0.1);
+        }
+
+        body.dark-mode .breadcrumb-link {
+            color: var(--accent-color);
+        }
+
+        body.dark-mode .breadcrumb-link:hover, body.dark-mode .breadcrumb-link:focus {
+            color: var(--accent-hover);
+        }
+
+        body.dark-mode .breadcrumb-separator, body.dark-mode .breadcrumb-item[aria-current="page"] {
+            color: var(--text-muted);
+        }
+
+        body.dark-mode #help-modal .modal-dialog {
+            background: var(--bg-secondary);
+            border-color: var(--accent-color);
+        }
+
+        body.dark-mode #help-modal .modal-header {
+            border-bottom-color: var(--border-color);
+        }
+
+        body.dark-mode #help-modal .modal-body {
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .folder-card-button:hover, body.dark-mode .folder-card-button:focus {
+            background: rgba(82, 182, 232, 0.1);
+        }
+
+        body.dark-mode .folder-actions button {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        body.dark-mode .folder-actions button:hover, body.dark-mode .folder-actions button:focus {
+            background: var(--accent-color);
+            color: var(--bg-secondary);
+        }
+
+        body.dark-mode .deck-menu-btn {
+            background: transparent;
+            border-color: var(--border-input);
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .deck-menu-btn:hover, body.dark-mode .deck-menu-btn:focus {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-color);
+        }
+
+        /* Font Size Classes */
+        body.font-small {
+            font-size: 14px;
+        }
+
+        body.font-small input, body.font-small textarea, body.font-small select, body.font-small button {
+            font-size: 14px;
+        }
+
+        body.font-small .nav-tab {
+            font-size: 14px;
+            padding: 10px 16px;
+        }
+
+        body.font-small .deck-title, body.font-small .folder-card-title {
+            font-size: 16px;
+        }
+
+        body.font-small .flashcard-content {
+            font-size: 16px;
+        }
+
+        body.font-small .quiz-question {
+            font-size: 18px;
+        }
+
+        body.font-small .stats-card-value {
+            font-size: 40px;
+        }
+
+        body.font-medium {
+            font-size: 16px;
+        }
+
+        body.font-large {
+            font-size: 18px;
+        }
+
+        body.font-large input, body.font-large textarea, body.font-large select, body.font-large button {
+            font-size: 18px;
+            padding: 14px;
+        }
+
+        body.font-large .nav-tab {
+            font-size: 18px;
+            padding: 14px 24px;
+        }
+
+        body.font-large .deck-title, body.font-large .folder-card-title {
+            font-size: 20px;
+        }
+
+        body.font-large .flashcard-content {
+            font-size: 20px;
+        }
+
+        body.font-large .quiz-question {
+            font-size: 22px;
+        }
+
+        body.font-large .stats-card-value {
+            font-size: 56px;
+        }
+
+        body.font-large h1 {
+            font-size: 2rem;
+        }
+
+        body.font-large h2 {
+            font-size: 1.6rem;
+        }
+
+        body.font-large h3 {
+            font-size: 1.3rem;
+        }
+
+        body.font-extra-large {
+            font-size: 20px;
+        }
+
+        body.font-extra-large input, body.font-extra-large textarea, body.font-extra-large select, body.font-extra-large button {
+            font-size: 20px;
+            padding: 16px;
+        }
+
+        body.font-extra-large .nav-tab {
+            font-size: 20px;
+            padding: 16px 28px;
+        }
+
+        body.font-extra-large .deck-title, body.font-extra-large .folder-card-title {
+            font-size: 24px;
+        }
+
+        body.font-extra-large .flashcard-content {
+            font-size: 24px;
+        }
+
+        body.font-extra-large .quiz-question {
+            font-size: 26px;
+        }
+
+        body.font-extra-large .stats-card-value {
+            font-size: 64px;
+        }
+
+        body.font-extra-large h1 {
+            font-size: 2.4rem;
+        }
+
+        body.font-extra-large h2 {
+            font-size: 1.9rem;
+        }
+
+        body.font-extra-large h3 {
+            font-size: 1.5rem;
+        }
+
+        /* High Contrast Mode */
+        body.high-contrast {
+            --bg-primary: #000000;
+            --bg-secondary: #000000;
+            --bg-tertiary: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #ffffff;
+            --text-muted: #cccccc;
+            --text-label: #ffffff;
+            --border-color: #ffffff;
+            --border-input: #ffffff;
+            --accent-color: #ffff00;
+            --accent-hover: #ffff66;
+            --success-color: #00ff00;
+            --success-bg: #003300;
+            --danger-color: #ff0000;
+            --danger-bg: #330000;
+            --warning-color: #ffaa00;
+            --shadow-color: none;
+            --overlay-bg: rgba(0, 0, 0, 0.95);
+            --modal-overlay: rgba(0, 0, 0, 0.9);
+        }
+
+        body.high-contrast {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        body.high-contrast .container {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            box-shadow: none;
+        }
+
+        body.high-contrast h1, body.high-contrast h2, body.high-contrast h3,
+        body.high-contrast label, body.high-contrast p {
+            color: var(--text-primary);
+        }
+
+        body.high-contrast input, body.high-contrast textarea, body.high-contrast select {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-input);
+            color: var(--text-primary);
+        }
+
+        body.high-contrast button {
+            background: var(--accent-color);
+            border: 2px solid var(--accent-color);
+            color: #000000;
+            font-weight: 700;
+        }
+
+        body.high-contrast button:hover, body.high-contrast button:focus {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        body.high-contrast .nav-tab {
+            color: var(--text-primary);
+            border-bottom: 3px solid transparent;
+        }
+
+        body.high-contrast .nav-tab.active {
+            border-bottom-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        body.high-contrast .nav-tabs {
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        body.high-contrast .deck-card, body.high-contrast .folder-card,
+        body.high-contrast .settings-section, body.high-contrast .stats-card,
+        body.high-contrast .keyboard-help {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+        }
+
+        body.high-contrast .deck-card:hover, body.high-contrast .folder-card:hover,
+        body.high-contrast .stats-card:hover {
+            border-color: var(--accent-color);
+            background: var(--bg-secondary);
+        }
+
+        body.high-contrast .flashcard {
+            background: var(--bg-secondary);
+            border: 3px solid var(--accent-color);
+        }
+
+        body.high-contrast .modal, body.high-contrast .mode-overlay-content,
+        body.high-contrast .deck-menu {
+            background: var(--bg-secondary);
+            border: 2px solid var(--accent-color);
+        }
+
+        body.high-contrast .mode-overlay {
+            background: var(--overlay-bg);
+        }
+
+        body.high-contrast .quiz-option {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        body.high-contrast .quiz-option:hover, body.high-contrast .quiz-option:focus {
+            border-color: var(--accent-color);
+        }
+
+        body.high-contrast .quiz-option.correct {
+            background: var(--success-bg);
+            border-color: var(--success-color);
+        }
+
+        body.high-contrast .quiz-option.incorrect {
+            background: var(--danger-bg);
+            border-color: var(--danger-color);
+        }
+
+        body.high-contrast a, body.high-contrast .breadcrumb-link {
+            color: var(--accent-color);
+        }
+
+        body.high-contrast .stats-card-value {
+            color: var(--accent-color);
+        }
+
+        body.high-contrast .progress-bar {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+        }
+
+        body.high-contrast .progress-fill {
+            background: var(--accent-color);
+        }
+
+        body.high-contrast input:focus, body.high-contrast textarea:focus,
+        body.high-contrast select:focus, body.high-contrast button:focus {
+            outline: 3px solid var(--accent-color);
+            outline-offset: 2px;
+            box-shadow: none;
+        }
+
+        body.high-contrast .folder-actions button,
+        body.high-contrast .stats-period-btn,
+        body.high-contrast .deck-menu-btn {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+            background: transparent;
+        }
+
+        body.high-contrast .folder-actions button:hover,
+        body.high-contrast .folder-actions button:focus,
+        body.high-contrast .stats-period-btn:hover,
+        body.high-contrast .stats-period-btn.active {
+            background: var(--accent-color);
+            color: #000000;
+        }
+
+        /* Reduced Motion */
+        body.reduced-motion,
+        body.reduced-motion *,
+        body.reduced-motion *::before,
+        body.reduced-motion *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+        }
+
+        /* Also respect OS-level reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
 </style>
 </head>
 <body>
@@ -971,6 +1572,27 @@ Mitochondria are the powerhouses of the cell."></textarea>
             <!-- Settings Tab -->
             <section class="tab-content" id="settings-tab" role="tabpanel">
                 <h2>Settings</h2>
+
+                <div class="settings-section">
+                    <h3>Vision</h3>
+                    <p class="setting-description">Adjust display settings for better visibility and comfort.</p>
+                    <div class="setting-item">
+                        <label for="dark-mode-btn">Dark Mode</label>
+                        <button id="dark-mode-btn" type="button" aria-label="Toggle dark mode">Off</button>
+                    </div>
+                    <div class="setting-item">
+                        <label for="font-size-btn">Font Size</label>
+                        <button id="font-size-btn" type="button" aria-label="Change font size">Medium</button>
+                    </div>
+                    <div class="setting-item">
+                        <label for="high-contrast-btn">High Contrast</label>
+                        <button id="high-contrast-btn" type="button" aria-label="Toggle high contrast mode">Off</button>
+                    </div>
+                    <div class="setting-item">
+                        <label for="reduced-motion-btn">Reduced Motion</label>
+                        <button id="reduced-motion-btn" type="button" aria-label="Toggle reduced motion">Off</button>
+                    </div>
+                </div>
 
                 <div class="settings-section">
                     <h3>Sound</h3>
