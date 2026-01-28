@@ -107,6 +107,11 @@ class SparkDeckApp {
 
         // Stats state
         this.currentStatsPeriod = 'lifetime';
+
+        // Search and filter state
+        this.searchQuery = '';
+        this.categoryFilter = '';
+
         this.initializeElements();
         this.setupEventListeners();
         this.populateFolderOptions(this.deckFolder);
@@ -163,6 +168,7 @@ class SparkDeckApp {
         this.generateBtn = document.getElementById('generate-btn');
         this.cardFront = document.getElementById('card-front');
         this.cardBack = document.getElementById('card-back');
+        this.cardMediaInput = document.getElementById('card-media');
         this.addCardBtn = document.getElementById('add-card-btn');
         this.cardsPreview = document.getElementById('cards-preview');
         this.previewCards = document.getElementById('preview-cards');
@@ -247,6 +253,16 @@ class SparkDeckApp {
         this.modalCancelBtn = document.getElementById('modal-cancel-btn');
         this.modalConfirmBtn = document.getElementById('modal-confirm-btn');
         this._lastFocusedEl = null;
+
+        // Search and filter elements
+        this.deckSearch = document.getElementById('deck-search');
+        this.categoryFilterSelect = document.getElementById('category-filter');
+        this.clearFiltersBtn = document.getElementById('clear-filters-btn');
+        this.searchResultsInfo = document.getElementById('search-results-info');
+
+        // Custom category elements
+        this.customCategoryWrapper = document.getElementById('custom-category-wrapper');
+        this.customCategoryInput = document.getElementById('custom-category');
     }
 
     setupEventListeners() {
@@ -468,6 +484,22 @@ class SparkDeckApp {
         this.statsPeriodBtns.forEach(btn => {
             btn.addEventListener('click', () => this.setStatsPeriod(btn.dataset.period));
         });
+
+        // Search and filter events
+        if (this.deckSearch) {
+            this.deckSearch.addEventListener('input', (e) => this.handleSearch(e.target.value));
+        }
+        if (this.categoryFilterSelect) {
+            this.categoryFilterSelect.addEventListener('change', (e) => this.handleCategoryFilter(e.target.value));
+        }
+        if (this.clearFiltersBtn) {
+            this.clearFiltersBtn.addEventListener('click', () => this.clearFilters());
+        }
+
+        // Custom category handling
+        if (this.deckCategory) {
+            this.deckCategory.addEventListener('change', (e) => this.handleCategoryChange(e.target.value));
+        }
     }
 
     announce(message) {
@@ -498,6 +530,163 @@ class SparkDeckApp {
                 this.muteToggleBtn.focus();
             }, 10);
         }
+    }
+
+    // Search and filter methods
+    handleSearch(query) {
+        this.searchQuery = query.toLowerCase().trim();
+        this.updateClearFiltersButton();
+        this.renderDecks();
+    }
+
+    handleCategoryFilter(category) {
+        this.categoryFilter = category;
+        this.updateClearFiltersButton();
+        this.renderDecks();
+    }
+
+    clearFilters() {
+        this.searchQuery = '';
+        this.categoryFilter = '';
+        if (this.deckSearch) this.deckSearch.value = '';
+        if (this.categoryFilterSelect) this.categoryFilterSelect.value = '';
+        this.updateClearFiltersButton();
+        this.renderDecks();
+        this.announce('Filters cleared');
+    }
+
+    updateClearFiltersButton() {
+        if (!this.clearFiltersBtn) return;
+        const hasFilters = this.searchQuery || this.categoryFilter;
+        this.clearFiltersBtn.classList.toggle('hidden', !hasFilters);
+    }
+
+    // Filter decks based on search query and category
+    filterDecks(deckIndices) {
+        return deckIndices.filter(idx => {
+            const deck = this.decks[idx];
+
+            // Search filter
+            if (this.searchQuery) {
+                const nameMatch = deck.name.toLowerCase().includes(this.searchQuery);
+                const categoryMatch = deck.category && deck.category.toLowerCase().includes(this.searchQuery);
+                if (!nameMatch && !categoryMatch) return false;
+            }
+
+            // Category filter
+            if (this.categoryFilter) {
+                if (deck.category !== this.categoryFilter) return false;
+            }
+
+            return true;
+        });
+    }
+
+    // Get all categories used in decks (including custom ones)
+    getAllCategories() {
+        const categories = new Set();
+        this.decks.forEach(deck => {
+            if (deck.category) {
+                categories.add(deck.category);
+            }
+        });
+        return Array.from(categories).sort();
+    }
+
+    // Update the category filter dropdown to include custom categories
+    updateCategoryFilterOptions() {
+        if (!this.categoryFilterSelect) return;
+
+        const defaultCategories = [
+            'Biology', 'Chemistry', 'Physics', 'Math', 'History', 'Geography',
+            'Literature', 'Language', 'Computer Science', 'Art', 'Music',
+            'Psychology', 'Economics', 'Philosophy', 'Medicine', 'Law',
+            'Engineering', 'Business', 'Other'
+        ];
+
+        const allCategories = this.getAllCategories();
+        const customCategories = allCategories.filter(cat => !defaultCategories.includes(cat));
+
+        // Only update if there are custom categories to add
+        const existingOptions = Array.from(this.categoryFilterSelect.options).map(opt => opt.value);
+
+        customCategories.forEach(cat => {
+            if (!existingOptions.includes(cat)) {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                // Insert before "Other" option
+                const otherOption = this.categoryFilterSelect.querySelector('option[value="Other"]');
+                if (otherOption) {
+                    this.categoryFilterSelect.insertBefore(option, otherOption);
+                } else {
+                    this.categoryFilterSelect.appendChild(option);
+                }
+            }
+        });
+    }
+
+    updateSearchResultsInfo(totalDecks, filteredCount) {
+        if (!this.searchResultsInfo) return;
+
+        const hasFilters = this.searchQuery || this.categoryFilter;
+
+        if (!hasFilters) {
+            this.searchResultsInfo.classList.add('hidden');
+            return;
+        }
+
+        this.searchResultsInfo.classList.remove('hidden');
+
+        if (filteredCount === 0) {
+            this.searchResultsInfo.classList.add('no-results');
+            let message = 'No decks found';
+            if (this.searchQuery && this.categoryFilter) {
+                message += ` matching "${this.searchQuery}" in ${this.categoryFilter}`;
+            } else if (this.searchQuery) {
+                message += ` matching "${this.searchQuery}"`;
+            } else if (this.categoryFilter) {
+                message += ` in ${this.categoryFilter}`;
+            }
+            this.searchResultsInfo.innerHTML = `<span>${message}</span>`;
+        } else {
+            this.searchResultsInfo.classList.remove('no-results');
+            let message = `Showing ${filteredCount} of ${totalDecks} deck${totalDecks !== 1 ? 's' : ''}`;
+            if (this.searchQuery && this.categoryFilter) {
+                message += ` matching "${this.searchQuery}" in ${this.categoryFilter}`;
+            } else if (this.searchQuery) {
+                message += ` matching "${this.searchQuery}"`;
+            } else if (this.categoryFilter) {
+                message += ` in ${this.categoryFilter}`;
+            }
+            this.searchResultsInfo.innerHTML = `<span>${message}</span>`;
+        }
+    }
+
+    // Handle category dropdown change for custom category input
+    handleCategoryChange(value) {
+        if (!this.customCategoryWrapper) return;
+
+        if (value === 'Other') {
+            this.customCategoryWrapper.classList.remove('hidden');
+            if (this.customCategoryInput) {
+                this.customCategoryInput.focus();
+            }
+        } else {
+            this.customCategoryWrapper.classList.add('hidden');
+            if (this.customCategoryInput) {
+                this.customCategoryInput.value = '';
+            }
+        }
+    }
+
+    // Get the actual category value (handles custom category)
+    getSelectedCategory() {
+        const selected = this.deckCategory.value;
+        if (selected === 'Other' && this.customCategoryInput && this.customCategoryInput.value.trim()) {
+            return this.customCategoryInput.value.trim();
+        }
+        return selected === 'Other' ? 'Other' : selected;
     }
 
     switchTab(tabName) {
@@ -1079,6 +1268,9 @@ class SparkDeckApp {
 
 
     renderDecks() {
+        // Update category filter options with custom categories
+        this.updateCategoryFilterOptions();
+
         if (this.decks.length === 0 && this.folders.length === 0) {
             this.decksList.innerHTML = `
                 <div class="empty-state">
@@ -1087,6 +1279,7 @@ class SparkDeckApp {
                     <button type="button" onclick="app.switchTab('create')">Create Your First Deck</button>
                 </div>
             `;
+            this.updateSearchResultsInfo(0, 0);
             return;
         }
 
@@ -1097,11 +1290,27 @@ class SparkDeckApp {
 
         // Group decks by folder
         const groups = new Map();
+        const filteredGroups = new Map(); // For filtered results
+        let totalDeckCount = 0;
+        let filteredDeckCount = 0;
+
         this.decks.forEach((deck, idx) => {
             const key = deck.folderId || null;
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key).push(idx);
+            totalDeckCount++;
         });
+
+        // Apply search/filter to each group
+        const hasFilters = this.searchQuery || this.categoryFilter;
+        for (const [folderId, deckIndices] of groups) {
+            const filtered = hasFilters ? this.filterDecks(deckIndices) : deckIndices;
+            filteredGroups.set(folderId, filtered);
+            filteredDeckCount += filtered.length;
+        }
+
+        // Update search results info
+        this.updateSearchResultsInfo(totalDeckCount, filteredDeckCount);
 
         const foldersSorted = [...this.folders].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -1109,11 +1318,13 @@ class SparkDeckApp {
         if (this.currentFolderId) {
             const folder = this.folders.find(f => f.id === this.currentFolderId);
             if (folder) {
-                const folderDecks = groups.get(this.currentFolderId) || [];
+                const folderDecks = filteredGroups.get(this.currentFolderId) || [];
+                const allFolderDecks = groups.get(this.currentFolderId) || [];
                 const subfolders = this.folders.filter(f => f.parentFolderId === this.currentFolderId);
                 const sortedSubfolders = [...subfolders].sort((a, b) => a.name.localeCompare(b.name));
 
-                const hasContent = folderDecks.length > 0 || sortedSubfolders.length > 0;
+                // Show content if there are decks (filtered or unfiltered) or subfolders
+                const hasContent = allFolderDecks.length > 0 || sortedSubfolders.length > 0;
 
                 if (!hasContent) {
                     const emptyMsg = document.createElement('div');
@@ -1202,22 +1413,32 @@ class SparkDeckApp {
             this.decksList.appendChild(foldersSection);
         }
 
-        // Render "My Decks" section for unorganized decks
-        const unorganizedDecks = groups.get(null) || [];
-        if (unorganizedDecks.length > 0) {
+        // Render "My Decks" section for unorganized decks (use filtered results)
+        const unorganizedDecks = filteredGroups.get(null) || [];
+        const allUnorganizedDecks = groups.get(null) || [];
+        if (allUnorganizedDecks.length > 0) {
             const myDecksSection = document.createElement('section');
             myDecksSection.className = 'my-decks-section';
             myDecksSection.setAttribute('aria-labelledby', 'my-decks-heading');
 
             const myDecksHeading = document.createElement('h3');
             myDecksHeading.id = 'my-decks-heading';
-            myDecksHeading.textContent = 'My Decks';
+            myDecksHeading.textContent = hasFilters && unorganizedDecks.length !== allUnorganizedDecks.length
+                ? `My Decks (${unorganizedDecks.length} of ${allUnorganizedDecks.length})`
+                : 'My Decks';
             myDecksSection.appendChild(myDecksHeading);
 
-            unorganizedDecks.forEach(deckIndex => {
-                const deckEl = this.createDeckCard(deckIndex);
-                myDecksSection.appendChild(deckEl);
-            });
+            if (unorganizedDecks.length > 0) {
+                unorganizedDecks.forEach(deckIndex => {
+                    const deckEl = this.createDeckCard(deckIndex);
+                    myDecksSection.appendChild(deckEl);
+                });
+            } else if (hasFilters) {
+                const noResults = document.createElement('p');
+                noResults.className = 'empty-state';
+                noResults.textContent = 'No decks match your search criteria.';
+                myDecksSection.appendChild(noResults);
+            }
 
             this.decksList.appendChild(myDecksSection);
         }
@@ -1556,7 +1777,27 @@ class SparkDeckApp {
 
         // Load deck data into form
         this.deckName.value = deck.name;
-        this.deckCategory.value = deck.category || 'Other';
+
+        // Handle category - check if it's a predefined category or custom
+        const predefinedCategories = [
+            'Biology', 'Chemistry', 'Physics', 'Math', 'History', 'Geography',
+            'Literature', 'Language', 'Computer Science', 'Art', 'Music',
+            'Psychology', 'Economics', 'Philosophy', 'Medicine', 'Law',
+            'Engineering', 'Business', 'Other'
+        ];
+        const deckCategory = deck.category || 'Other';
+
+        if (predefinedCategories.includes(deckCategory)) {
+            this.deckCategory.value = deckCategory;
+            if (this.customCategoryWrapper) this.customCategoryWrapper.classList.add('hidden');
+            if (this.customCategoryInput) this.customCategoryInput.value = '';
+        } else {
+            // Custom category
+            this.deckCategory.value = 'Other';
+            if (this.customCategoryWrapper) this.customCategoryWrapper.classList.remove('hidden');
+            if (this.customCategoryInput) this.customCategoryInput.value = deckCategory;
+        }
+
         this.populateFolderOptions(this.deckFolder, deck.folderId || '');
         this.deckFolder.value = deck.folderId || '';
 
@@ -1834,7 +2075,7 @@ class SparkDeckApp {
 
     saveDeck() {
         const name = this.deckName.value.trim();
-        const category = this.deckCategory.value;
+        const category = this.getSelectedCategory();
         const folderId = this.deckFolder.value || null;
 
         if (!name) {
@@ -1910,6 +2151,9 @@ class SparkDeckApp {
         this.cardsPreview.classList.add('hidden');
         this.populateFolderOptions(this.deckFolder);
         this.deckFolder.value = '';
+        // Reset custom category
+        if (this.customCategoryWrapper) this.customCategoryWrapper.classList.add('hidden');
+        if (this.customCategoryInput) this.customCategoryInput.value = '';
         this.updateCreateTabForEditMode();
     }
 
