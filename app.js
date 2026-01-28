@@ -546,19 +546,19 @@ class SparkDeckApp {
     }
 
     clearFilters() {
-        this.searchQuery = '';
+        // Only clear category filter, keep search text
         this.categoryFilter = '';
-        if (this.deckSearch) this.deckSearch.value = '';
         if (this.categoryFilterSelect) this.categoryFilterSelect.value = '';
         this.updateClearFiltersButton();
         this.renderDecks();
-        this.announce('Filters cleared');
+        this.announce('Category filter cleared');
     }
 
     updateClearFiltersButton() {
         if (!this.clearFiltersBtn) return;
-        const hasFilters = this.searchQuery || this.categoryFilter;
-        this.clearFiltersBtn.classList.toggle('hidden', !hasFilters);
+        // Only show clear button when category filter is active (not for text search)
+        const hasCategoryFilter = !!this.categoryFilter;
+        this.clearFiltersBtn.classList.toggle('hidden', !hasCategoryFilter);
     }
 
     // Filter decks based on search query and category
@@ -642,22 +642,23 @@ class SparkDeckApp {
             this.searchResultsInfo.classList.add('no-results');
             let message = 'No decks found';
             if (this.searchQuery && this.categoryFilter) {
-                message += ` matching "${this.searchQuery}" in ${this.categoryFilter}`;
+                message += ` matching "${this.searchQuery}" in category ${this.categoryFilter}`;
             } else if (this.searchQuery) {
                 message += ` matching "${this.searchQuery}"`;
             } else if (this.categoryFilter) {
-                message += ` in ${this.categoryFilter}`;
+                message += ` in category ${this.categoryFilter}`;
             }
             this.searchResultsInfo.innerHTML = `<span>${message}</span>`;
         } else {
             this.searchResultsInfo.classList.remove('no-results');
-            let message = `Showing ${filteredCount} of ${totalDecks} deck${totalDecks !== 1 ? 's' : ''}`;
+            // Simpler message: just show how many were found
+            let message = `Found ${filteredCount} deck${filteredCount !== 1 ? 's' : ''}`;
             if (this.searchQuery && this.categoryFilter) {
-                message += ` matching "${this.searchQuery}" in ${this.categoryFilter}`;
+                message += ` matching "${this.searchQuery}" in category ${this.categoryFilter}`;
             } else if (this.searchQuery) {
                 message += ` matching "${this.searchQuery}"`;
             } else if (this.categoryFilter) {
-                message += ` in ${this.categoryFilter}`;
+                message += ` in category ${this.categoryFilter}`;
             }
             this.searchResultsInfo.innerHTML = `<span>${message}</span>`;
         }
@@ -1390,8 +1391,9 @@ class SparkDeckApp {
         }
 
         // Root view: Show only root-level folders (parentFolderId === null) + unorganized decks
+        // Hide folders when searching/filtering to show flat search results
         const rootFolders = foldersSorted.filter(f => !f.parentFolderId);
-        if (rootFolders.length > 0) {
+        if (rootFolders.length > 0 && !hasFilters) {
             const foldersSection = document.createElement('section');
             foldersSection.className = 'folders-section';
             foldersSection.setAttribute('aria-labelledby', 'folders-heading');
@@ -1413,32 +1415,53 @@ class SparkDeckApp {
             this.decksList.appendChild(foldersSection);
         }
 
-        // Render "My Decks" section for unorganized decks (use filtered results)
+        // When filtering, show results under "Search Results" heading
+        // Otherwise show under "My Decks"
         const unorganizedDecks = filteredGroups.get(null) || [];
         const allUnorganizedDecks = groups.get(null) || [];
-        if (allUnorganizedDecks.length > 0) {
+
+        if (hasFilters) {
+            // Show Search Results section when filtering
+            const resultsSection = document.createElement('section');
+            resultsSection.className = 'search-results-section';
+            resultsSection.setAttribute('aria-labelledby', 'search-results-heading');
+
+            const resultsHeading = document.createElement('h3');
+            resultsHeading.id = 'search-results-heading';
+            resultsHeading.textContent = `Search Results (${filteredDeckCount})`;
+            resultsSection.appendChild(resultsHeading);
+
+            if (filteredDeckCount > 0) {
+                // Show all filtered decks (from all folders) in one list
+                for (const [folderId, deckIndices] of filteredGroups) {
+                    deckIndices.forEach(deckIndex => {
+                        const deckEl = this.createDeckCard(deckIndex);
+                        resultsSection.appendChild(deckEl);
+                    });
+                }
+            } else {
+                const noResults = document.createElement('p');
+                noResults.className = 'empty-state';
+                noResults.textContent = 'No decks match your search criteria.';
+                resultsSection.appendChild(noResults);
+            }
+
+            this.decksList.appendChild(resultsSection);
+        } else if (allUnorganizedDecks.length > 0) {
+            // Normal view - show My Decks
             const myDecksSection = document.createElement('section');
             myDecksSection.className = 'my-decks-section';
             myDecksSection.setAttribute('aria-labelledby', 'my-decks-heading');
 
             const myDecksHeading = document.createElement('h3');
             myDecksHeading.id = 'my-decks-heading';
-            myDecksHeading.textContent = hasFilters && unorganizedDecks.length !== allUnorganizedDecks.length
-                ? `My Decks (${unorganizedDecks.length} of ${allUnorganizedDecks.length})`
-                : 'My Decks';
+            myDecksHeading.textContent = 'My Decks';
             myDecksSection.appendChild(myDecksHeading);
 
-            if (unorganizedDecks.length > 0) {
-                unorganizedDecks.forEach(deckIndex => {
-                    const deckEl = this.createDeckCard(deckIndex);
-                    myDecksSection.appendChild(deckEl);
-                });
-            } else if (hasFilters) {
-                const noResults = document.createElement('p');
-                noResults.className = 'empty-state';
-                noResults.textContent = 'No decks match your search criteria.';
-                myDecksSection.appendChild(noResults);
-            }
+            unorganizedDecks.forEach(deckIndex => {
+                const deckEl = this.createDeckCard(deckIndex);
+                myDecksSection.appendChild(deckEl);
+            });
 
             this.decksList.appendChild(myDecksSection);
         }

@@ -343,12 +343,36 @@
 
         .hidden[aria-hidden="true"] { display: none; }
 
+        /* Search Section */
+        .search-section {
+            margin-bottom: 20px;
+        }
+
+        .search-heading {
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: #2c3e50;
+        }
+
         /* Search and Filter Bar */
         .search-filter-bar {
             display: flex;
             gap: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             flex-wrap: wrap;
+        }
+
+        /* Search Results Section */
+        .search-results-section {
+            margin-bottom: 30px;
+        }
+
+        .search-results-section h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
         }
 
         .search-input-wrapper {
@@ -1191,6 +1215,15 @@
         }
 
         /* Dark mode for search/filter */
+        body.dark-mode .search-heading,
+        body.dark-mode .search-results-section h3 {
+            color: var(--text-secondary);
+        }
+
+        body.dark-mode .search-results-section h3 {
+            border-bottom-color: var(--accent-color);
+        }
+
         body.dark-mode .search-filter-bar input,
         body.dark-mode .search-filter-bar select {
             background: var(--bg-tertiary);
@@ -1511,6 +1544,15 @@
         }
 
         /* High contrast for search/filter */
+        body.high-contrast .search-heading,
+        body.high-contrast .search-results-section h3 {
+            color: var(--text-primary);
+        }
+
+        body.high-contrast .search-results-section h3 {
+            border-bottom-color: var(--accent-color);
+        }
+
         body.high-contrast .search-filter-bar input,
         body.high-contrast .search-filter-bar select {
             background: var(--bg-tertiary);
@@ -1578,41 +1620,44 @@
             <section class="tab-content active" id="decks-tab" role="tabpanel">
                 <h2>Your Study Decks</h2>
 
-                <!-- Search and Filter Bar -->
-                <div class="search-filter-bar" role="search" aria-label="Search and filter decks">
-                    <div class="search-input-wrapper">
-                        <label for="deck-search" class="sr-only">Search decks</label>
-                        <input type="search" id="deck-search" placeholder="Search decks..." aria-describedby="search-help">
-                        <span id="search-help" class="sr-only">Type to search by deck name</span>
+                <!-- Search and Filter Section -->
+                <section class="search-section" aria-labelledby="search-heading">
+                    <h3 id="search-heading" class="search-heading">Search</h3>
+                    <div class="search-filter-bar" role="search" aria-label="Search and filter decks">
+                        <div class="search-input-wrapper">
+                            <label for="deck-search" class="sr-only">Search decks by name</label>
+                            <input type="search" id="deck-search" placeholder="Search decks by name..." aria-describedby="search-help">
+                            <span id="search-help" class="sr-only">Type to search by deck name. Results update as you type.</span>
+                        </div>
+                        <div class="filter-wrapper">
+                            <label for="category-filter" class="sr-only">Filter by category</label>
+                            <select id="category-filter" aria-label="Filter by category">
+                                <option value="">All Categories</option>
+                                <option value="Biology">Biology</option>
+                                <option value="Chemistry">Chemistry</option>
+                                <option value="Physics">Physics</option>
+                                <option value="Math">Math</option>
+                                <option value="History">History</option>
+                                <option value="Geography">Geography</option>
+                                <option value="Literature">Literature</option>
+                                <option value="Language">Language</option>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Art">Art</option>
+                                <option value="Music">Music</option>
+                                <option value="Psychology">Psychology</option>
+                                <option value="Economics">Economics</option>
+                                <option value="Philosophy">Philosophy</option>
+                                <option value="Medicine">Medicine</option>
+                                <option value="Law">Law</option>
+                                <option value="Engineering">Engineering</option>
+                                <option value="Business">Business</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <button type="button" id="clear-filters-btn" class="clear-filters-btn hidden" aria-label="Clear category filter">Clear</button>
+                        </div>
                     </div>
-                    <div class="filter-wrapper">
-                        <label for="category-filter" class="sr-only">Filter by category</label>
-                        <select id="category-filter" aria-label="Filter by category">
-                            <option value="">All Categories</option>
-                            <option value="Biology">Biology</option>
-                            <option value="Chemistry">Chemistry</option>
-                            <option value="Physics">Physics</option>
-                            <option value="Math">Math</option>
-                            <option value="History">History</option>
-                            <option value="Geography">Geography</option>
-                            <option value="Literature">Literature</option>
-                            <option value="Language">Language</option>
-                            <option value="Computer Science">Computer Science</option>
-                            <option value="Art">Art</option>
-                            <option value="Music">Music</option>
-                            <option value="Psychology">Psychology</option>
-                            <option value="Economics">Economics</option>
-                            <option value="Philosophy">Philosophy</option>
-                            <option value="Medicine">Medicine</option>
-                            <option value="Law">Law</option>
-                            <option value="Engineering">Engineering</option>
-                            <option value="Business">Business</option>
-                            <option value="Other">Other</option>
-                        </select>
-                        <button type="button" id="clear-filters-btn" class="clear-filters-btn hidden" aria-label="Clear all filters">Clear</button>
-                    </div>
-                </div>
-                <div id="search-results-info" class="search-results-info hidden" aria-live="polite"></div>
+                </section>
+                <div id="search-results-info" class="search-results-info hidden" role="status" aria-live="polite"></div>
 
                 <div class="section" aria-label="Folder actions">
                     <button id="add-folder-btn" type="button">Add Folder</button>
