@@ -102,6 +102,19 @@ button:hover {
     border-color: #2980b9;
 }
 
+/* Secondary button style */
+.secondary-btn {
+    background: transparent;
+    color: #6c757d;
+    border: 2px solid #bdc3c7;
+}
+
+.secondary-btn:hover, .secondary-btn:focus {
+    background: #f8f9fa;
+    border-color: #3498db;
+    color: #3498db;
+}
+
 .button-group {
     display: flex;
     gap: 10px;
@@ -1188,6 +1201,19 @@ body.dark-mode button:hover {
     border-color: var(--accent-hover);
 }
 
+body.dark-mode .secondary-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border-color: var(--border-input);
+}
+
+body.dark-mode .secondary-btn:hover,
+body.dark-mode .secondary-btn:focus {
+    background: var(--bg-tertiary);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
 body.dark-mode .nav-tab {
     color: var(--text-primary);
 }
@@ -1574,6 +1600,18 @@ body.high-contrast button {
 body.high-contrast button:hover, body.high-contrast button:focus {
     background: var(--accent-hover);
     border-color: var(--accent-hover);
+}
+
+body.high-contrast .secondary-btn {
+    background: transparent;
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+body.high-contrast .secondary-btn:hover,
+body.high-contrast .secondary-btn:focus {
+    background: var(--accent-color);
+    color: #000000;
 }
 
 body.high-contrast .nav-tab {

@@ -112,6 +112,19 @@
             border-color: #2980b9;
         }
 
+        /* Secondary button style */
+        .secondary-btn {
+            background: transparent;
+            color: #6c757d;
+            border: 2px solid #bdc3c7;
+        }
+
+        .secondary-btn:hover, .secondary-btn:focus {
+            background: #f8f9fa;
+            border-color: #3498db;
+            color: #3498db;
+        }
+
         .button-group {
             display: flex;
             gap: 10px;
@@ -1711,6 +1724,10 @@
                         <!-- options populated by JS -->
                     </select>
                     <div id="deck-folder-help" class="sr-only">Choose a folder to save this deck into. Select "New folder…" to create one.</div>
+
+                    <div class="button-group" style="margin-top: 20px;">
+                        <button id="back-to-decks-btn" type="button" class="secondary-btn">Back to Decks</button>
+                    </div>
                 </div>
 
                 <div class="section">

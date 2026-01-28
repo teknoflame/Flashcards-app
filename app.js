@@ -263,6 +263,9 @@ class SparkDeckApp {
         // Custom category elements
         this.customCategoryWrapper = document.getElementById('custom-category-wrapper');
         this.customCategoryInput = document.getElementById('custom-category');
+
+        // Back to decks button
+        this.backToDecksBtn = document.getElementById('back-to-decks-btn');
     }
 
     setupEventListeners() {
@@ -283,6 +286,9 @@ class SparkDeckApp {
         this.cancelDeckBtn.addEventListener('click', () => this.cancelDeck());
         if (this.cancelCardEditBtn) {
             this.cancelCardEditBtn.addEventListener('click', () => this.cancelEditCard());
+        }
+        if (this.backToDecksBtn) {
+            this.backToDecksBtn.addEventListener('click', () => this.cancelDeck());
         }
         this.deckFolder.addEventListener('change', (e) => this.onDeckFolderSelectChanged(e));
 
@@ -1806,16 +1812,22 @@ class SparkDeckApp {
             'Biology', 'Chemistry', 'Physics', 'Math', 'History', 'Geography',
             'Literature', 'Language', 'Computer Science', 'Art', 'Music',
             'Psychology', 'Economics', 'Philosophy', 'Medicine', 'Law',
-            'Engineering', 'Business', 'Other'
+            'Engineering', 'Business'
         ];
         const deckCategory = deck.category || 'Other';
 
-        if (predefinedCategories.includes(deckCategory)) {
+        if (deckCategory === 'Other') {
+            // Category is "Other" - show custom field empty so user can optionally customize
+            this.deckCategory.value = 'Other';
+            if (this.customCategoryWrapper) this.customCategoryWrapper.classList.remove('hidden');
+            if (this.customCategoryInput) this.customCategoryInput.value = '';
+        } else if (predefinedCategories.includes(deckCategory)) {
+            // Standard predefined category
             this.deckCategory.value = deckCategory;
             if (this.customCategoryWrapper) this.customCategoryWrapper.classList.add('hidden');
             if (this.customCategoryInput) this.customCategoryInput.value = '';
         } else {
-            // Custom category
+            // Custom category - show custom field with the value
             this.deckCategory.value = 'Other';
             if (this.customCategoryWrapper) this.customCategoryWrapper.classList.remove('hidden');
             if (this.customCategoryInput) this.customCategoryInput.value = deckCategory;
