@@ -7,5 +7,9 @@
     "start": "node server.js"
   },
   "author": "teknoflame",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@netlify/functions": "^5.1.2",
+    "pg": "^8.18.0"
+  }
 }

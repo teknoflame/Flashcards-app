@@ -1,0 +1,16 @@
+# Netlify Configuration
+# This tells Netlify where your site files and serverless functions live.
+
+[build]
+  # The folder Netlify serves as your website (your existing app files)
+  publish = "."
+
+  # The folder where Netlify looks for serverless functions
+  functions = "netlify/functions"
+
+[dev]
+  # Local dev server port (matches your existing server.js setup)
+  port = 8888
+
+  # Where your static site files are
+  publish = "."
