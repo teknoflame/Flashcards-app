@@ -14,12 +14,12 @@
 // It is safe for these to be in your frontend code.
 
 const firebaseConfig = {
-    apiKey: "YOUR_FIREBASE_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_FIREBASE_APP_ID"
+    apiKey: "AIzaSyAn83KDy0gkoxVOB8QnLF_6yQpbNID-AQA",
+    authDomain: "sparkdeck-8d613.firebaseapp.com",
+    projectId: "sparkdeck-8d613",
+    storageBucket: "sparkdeck-8d613.firebasestorage.app",
+    messagingSenderId: "469530932966",
+    appId: "1:469530932966:web:13af65048f7fbc10eaed27"
 };
 
 // Initialize Firebase
