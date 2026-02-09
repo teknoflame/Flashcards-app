@@ -1,0 +1,20 @@
+{
+	"geolocation": {
+		"data": {
+			"city": "Detroit",
+			"country": {
+				"code": "US",
+				"name": "United States"
+			},
+			"subdivision": {
+				"code": "MI",
+				"name": "Michigan"
+			},
+			"timezone": "America/Detroit",
+			"latitude": 42.4257,
+			"longitude": -83.1522,
+			"postalCode": "48221"
+		},
+		"timestamp": 1770601854275
+	}
+}
