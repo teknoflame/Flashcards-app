@@ -2945,11 +2945,8 @@ function switchTab(tabName) {
     app.switchTab(tabName);
 }
 
-// Initialize the app
+// App instance - initialized by auth.js when user signs in
 let app;
-document.addEventListener('DOMContentLoaded', () => {
-    app = new SparkDeckApp();
-});
 
 // Modal helpers added to SparkDeckApp prototype
 SparkDeckApp.prototype.openTextModal = function({ title, label, initialValue = '', confirmText = 'Save', cancelText = 'Cancel' }) {

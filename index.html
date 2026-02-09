@@ -7,6 +7,9 @@
         <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>SparkDeck - Accessible Flashcards Study App</title>
 <link rel="stylesheet" href="styles.css">
+    <!-- Firebase SDK (compat version for vanilla JS - no bundler needed) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -1606,13 +1609,265 @@
                 scroll-behavior: auto !important;
             }
         }
+
+        /* ========================================
+           Auth Screen Styles
+           ======================================== */
+        .auth-container {
+            max-width: 480px;
+            margin: 60px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .auth-header p {
+            color: #6c757d;
+        }
+
+        .auth-form .form-group {
+            margin-bottom: 16px;
+        }
+
+        .auth-error {
+            background: #f8d7da;
+            border: 1px solid #e74c3c;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 16px;
+            color: #721c24;
+        }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 20px;
+            color: #6c757d;
+        }
+
+        .auth-toggle button {
+            background: none;
+            border: none;
+            color: #3498db;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 4px 8px;
+            width: auto;
+        }
+
+        .auth-toggle button:hover, .auth-toggle button:focus {
+            color: #2980b9;
+        }
+
+        .auth-divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #6c757d;
+            position: relative;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #dee2e6;
+        }
+
+        .auth-divider::before { left: 0; }
+        .auth-divider::after { right: 0; }
+
+        /* App header with sign-out */
+        .app-header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .app-header-bar .header-left {
+            flex: 1;
+        }
+
+        .app-header-bar .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-email {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        #sign-out-btn {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 14px;
+            background: transparent;
+            color: #e74c3c;
+            border: 2px solid #e74c3c;
+        }
+
+        #sign-out-btn:hover, #sign-out-btn:focus {
+            background: #e74c3c;
+            color: white;
+        }
+
+        /* Dark mode auth */
+        body.dark-mode .auth-container {
+            background: var(--bg-secondary);
+            box-shadow: 0 2px 10px var(--shadow-color);
+        }
+
+        body.dark-mode .auth-header p,
+        body.dark-mode .auth-toggle,
+        body.dark-mode .user-email {
+            color: var(--text-muted);
+        }
+
+        body.dark-mode .auth-error {
+            background: var(--danger-bg);
+            border-color: var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        body.dark-mode .auth-toggle button {
+            color: var(--accent-color);
+        }
+
+        body.dark-mode .auth-divider {
+            color: var(--text-muted);
+        }
+
+        body.dark-mode .auth-divider::before,
+        body.dark-mode .auth-divider::after {
+            background: var(--border-color);
+        }
+
+        body.dark-mode #sign-out-btn {
+            color: var(--danger-color);
+            border-color: var(--danger-color);
+            background: transparent;
+        }
+
+        body.dark-mode #sign-out-btn:hover, body.dark-mode #sign-out-btn:focus {
+            background: var(--danger-color);
+            color: var(--bg-secondary);
+        }
+
+        /* High contrast auth */
+        body.high-contrast .auth-container {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            box-shadow: none;
+        }
+
+        body.high-contrast .auth-error {
+            background: var(--danger-bg);
+            border: 2px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        body.high-contrast .auth-toggle button {
+            color: var(--accent-color);
+        }
+
+        body.high-contrast #sign-out-btn {
+            color: var(--danger-color);
+            border-color: var(--danger-color);
+            background: transparent;
+        }
+
+        body.high-contrast #sign-out-btn:hover, body.high-contrast #sign-out-btn:focus {
+            background: var(--danger-color);
+            color: #000000;
+        }
 </style>
 </head>
 <body>
+    <!-- Auth Screen (shown when not signed in) -->
+    <div id="auth-screen" class="auth-container">
+        <div class="auth-header">
+            <h1>SparkDeck</h1>
+            <p>Sign in to access your flashcards from anywhere.</p>
+        </div>
+
+        <!-- Auth error message -->
+        <div id="auth-error" class="auth-error hidden" role="alert" aria-live="assertive"></div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="auth-form" novalidate>
+            <div class="form-group">
+                <label for="login-email">Email address</label>
+                <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" id="login-submit-btn">Sign In</button>
+        </form>
+
+        <!-- Signup Form (hidden by default) -->
+        <form id="signup-form" class="auth-form hidden" novalidate>
+            <div class="form-group">
+                <label for="signup-email">Email address</label>
+                <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-password">Password</label>
+                <input type="password" id="signup-password" placeholder="At least 6 characters" autocomplete="new-password" required aria-describedby="password-requirements">
+                <span id="password-requirements" class="sr-only">Password must be at least 6 characters long.</span>
+            </div>
+            <div class="form-group">
+                <label for="signup-confirm-password">Confirm password</label>
+                <input type="password" id="signup-confirm-password" placeholder="Re-enter your password" autocomplete="new-password" required>
+            </div>
+            <button type="submit" id="signup-submit-btn">Create Account</button>
+        </form>
+
+        <div class="auth-divider">or</div>
+
+        <div class="auth-toggle" id="auth-toggle-login">
+            <span>Don't have an account?</span>
+            <button type="button" id="show-signup-btn">Sign up</button>
+        </div>
+        <div class="auth-toggle hidden" id="auth-toggle-signup">
+            <span>Already have an account?</span>
+            <button type="button" id="show-login-btn">Sign in</button>
+        </div>
+    </div>
+
+    <!-- Main App (hidden until signed in) -->
+    <div id="app-container" class="hidden">
     <div class="container">
         <header>
-            <h1>SparkDeck</h1>
-            <p>Intelligent, accessible flashcards with spaced repetition - making studying seamless and engaging for everyone.</p>
+            <div class="app-header-bar">
+                <div class="header-left">
+                    <h1>SparkDeck</h1>
+                    <p>Intelligent, accessible flashcards with spaced repetition - making studying seamless and engaging for everyone.</p>
+                </div>
+                <div class="header-right">
+                    <span class="user-email" id="user-email-display" aria-label="Signed in as"></span>
+                    <button id="sign-out-btn" type="button" aria-label="Sign out">Sign Out</button>
+                </div>
+            </div>
             <div class="section" style="margin-top:10px;">
                 <button id="open-help-btn" type="button">Help</button>
             </div>
@@ -2047,7 +2302,12 @@ Mitochondria are the powerhouses of the cell."></textarea>
         </div>
     </div>
 
-    <script src="app.js" defer></script>
+    </div><!-- end #app-container -->
+
+    <!-- Scripts: Firebase config must load first, then app logic, then auth -->
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+    <script src="auth.js"></script>
 </body>
 
 </html>
