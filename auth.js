@@ -120,7 +120,7 @@
 
             if (!dataResponse.ok) {
                 var errorBody = await dataResponse.json().catch(function() { return {}; });
-                console.warn('Could not load data from database:', dataResponse.status, errorBody);
+                console.warn('Could not load data from database:', dataResponse.status, JSON.stringify(errorBody));
                 return;
             }
 
