@@ -2,13 +2,15 @@
 //
 // Bulk data sync endpoint. Loads or saves ALL user data in one request.
 //
-// Adapted to work with the existing database schema:
-//   - users: id (UUID), firebase_uid, email, display_name
-//   - folders: id (UUID auto-generated), name, parent_folder_id, user_id
-//   - decks: id (UUID auto-generated), title, subject, description,
-//            visibility, cards (JSONB), folder_id, user_id
-//   - user_settings: settings per user (created by setup-database)
-//   - study_sessions: study history (created by setup-database)
+// Actual database schema (discovered via check-schema):
+//   - users:          id (UUID), firebase_uid, email
+//   - folders:        id (INTEGER auto), name, parent_folder_id (INTEGER), user_id (UUID)
+//   - decks:          id (INTEGER auto), name, category, description, visibility,
+//                     folder_id (INTEGER), user_id (UUID)
+//   - cards:          id (INTEGER auto), deck_id (INTEGER), front, back, media_url,
+//                     sort_order (INTEGER)
+//   - user_settings:  user_id (UUID), dark_mode, font_size, etc.
+//   - study_sessions: user_id (UUID), deck_name, cards_studied, studied_at
 //
 // GET  /.netlify/functions/api-data  → Load all user data
 // PUT  /.netlify/functions/api-data  → Save all user data (full replace)
@@ -28,12 +30,34 @@ async function loadUserData(dbUserId) {
         [dbUserId]
     );
 
-    // Load decks (cards are JSONB inside the decks table)
+    // Load decks
     const decksResult = await query(
-        `SELECT id, title, subject, description, visibility, folder_id, cards, created_at
+        `SELECT id, name, category, visibility, folder_id, created_at
          FROM decks WHERE user_id = $1 ORDER BY created_at`,
         [dbUserId]
     );
+
+    // Load all cards for this user's decks in one query
+    const deckIds = decksResult.rows.map((d) => d.id);
+    let cardsMap = {};
+
+    if (deckIds.length > 0) {
+        const cardsResult = await query(
+            `SELECT id, front, back, media_url, sort_order, deck_id
+             FROM cards WHERE deck_id = ANY($1) ORDER BY sort_order`,
+            [deckIds]
+        );
+
+        // Group cards by deck_id
+        for (const card of cardsResult.rows) {
+            if (!cardsMap[card.deck_id]) cardsMap[card.deck_id] = [];
+            cardsMap[card.deck_id].push({
+                front: card.front,
+                back: card.back,
+                mediaUrl: card.media_url || undefined,
+            });
+        }
+    }
 
     // Load settings
     const settingsResult = await query(
@@ -50,23 +74,22 @@ async function loadUserData(dbUserId) {
     );
 
     // Format data to match the frontend's expected shape.
-    // The frontend uses: name/category/folderId (camelCase)
-    // The database uses: title/subject/folder_id (different names)
+    // Integer IDs are converted to strings for the frontend.
 
     const folders = foldersResult.rows.map((f) => ({
-        id: f.id, // UUID string — frontend uses this as-is
+        id: String(f.id),
         name: f.name,
-        parentFolderId: f.parent_folder_id || null,
-        created: f.created_at.toISOString(),
+        parentFolderId: f.parent_folder_id ? String(f.parent_folder_id) : null,
+        created: f.created_at ? f.created_at.toISOString() : new Date().toISOString(),
     }));
 
     const decks = decksResult.rows.map((d) => ({
-        name: d.title, // DB "title" → frontend "name"
-        category: d.subject || "", // DB "subject" → frontend "category"
+        name: d.name,
+        category: d.category || "",
         visibility: d.visibility || "private",
-        folderId: d.folder_id || null, // UUID string, matches folder IDs
-        cards: d.cards || [], // JSONB parsed automatically by pg
-        created: d.created_at.toISOString(),
+        folderId: d.folder_id ? String(d.folder_id) : null,
+        cards: cardsMap[d.id] || [],
+        created: d.created_at ? d.created_at.toISOString() : new Date().toISOString(),
     }));
 
     const settingsRow = settingsResult.rows[0];
@@ -87,7 +110,7 @@ async function loadUserData(dbUserId) {
           };
 
     const studySessions = statsResult.rows.map((s) => ({
-        timestamp: s.studied_at.toISOString(),
+        timestamp: s.studied_at ? s.studied_at.toISOString() : new Date().toISOString(),
         deckName: s.deck_name,
         cardsStudied: s.cards_studied,
     }));
@@ -108,17 +131,23 @@ async function saveUserData(dbUserId, data) {
     try {
         await client.query("BEGIN");
 
-        // 1. Delete existing data (order matters for foreign keys)
-        //    study_sessions and user_settings don't depend on decks/folders
+        // 1. Delete existing data for this user (order matters for foreign keys)
         await client.query("DELETE FROM study_sessions WHERE user_id = $1", [
             dbUserId,
         ]);
+
+        // Delete cards that belong to this user's decks
+        await client.query(
+            "DELETE FROM cards WHERE deck_id IN (SELECT id FROM decks WHERE user_id = $1)",
+            [dbUserId]
+        );
+
         await client.query("DELETE FROM decks WHERE user_id = $1", [dbUserId]);
         await client.query("DELETE FROM folders WHERE user_id = $1", [
             dbUserId,
         ]);
 
-        // 2. Insert folders — DB generates UUID IDs, we map client IDs to new UUIDs
+        // 2. Insert folders — DB generates integer IDs, we map client IDs to new IDs
         const folderIdMap = new Map();
 
         if (data.folders && data.folders.length > 0) {
@@ -126,49 +155,70 @@ async function saveUserData(dbUserId, data) {
             const sorted = sortFoldersForInsert(data.folders);
 
             for (const folder of sorted) {
-                // Map parent ID: use the new UUID if parent was already inserted
+                // Map parent ID: use the new integer ID if parent was already inserted
                 const parentId = folder.parentFolderId
                     ? folderIdMap.get(folder.parentFolderId) || null
                     : null;
 
                 const result = await client.query(
-                    `INSERT INTO folders (user_id, name, parent_folder_id, created_at)
+                    `INSERT INTO folders (name, parent_folder_id, user_id, created_at)
                      VALUES ($1, $2, $3, $4)
                      RETURNING id`,
                     [
-                        dbUserId,
                         folder.name,
                         parentId,
+                        dbUserId,
                         folder.created || new Date().toISOString(),
                     ]
                 );
 
-                // Map the client's folder ID to the new DB-generated UUID
-                folderIdMap.set(folder.id, result.rows[0].id);
+                // Map the client's folder ID (string) to the new DB integer ID
+                folderIdMap.set(String(folder.id), result.rows[0].id);
             }
         }
 
-        // 3. Insert decks with JSONB cards
+        // 3. Insert decks and their cards
         if (data.decks && data.decks.length > 0) {
             for (const deck of data.decks) {
-                // Map folder ID from client ID to DB UUID
+                // Map folder ID from client string to DB integer
                 const folderId = deck.folderId
-                    ? folderIdMap.get(deck.folderId) || null
+                    ? folderIdMap.get(String(deck.folderId)) || null
                     : null;
 
-                await client.query(
-                    `INSERT INTO decks (user_id, folder_id, title, subject, visibility, cards, created_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                const deckResult = await client.query(
+                    `INSERT INTO decks (name, category, visibility, folder_id, user_id, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6)
+                     RETURNING id`,
                     [
-                        dbUserId,
-                        folderId,
-                        deck.name, // Frontend "name" → DB "title"
-                        deck.category || null, // Frontend "category" → DB "subject"
+                        deck.name,
+                        deck.category || null,
                         deck.visibility || "private",
-                        JSON.stringify(deck.cards || []),
+                        folderId,
+                        dbUserId,
                         deck.created || new Date().toISOString(),
                     ]
                 );
+
+                const deckId = deckResult.rows[0].id;
+
+                // Insert cards for this deck
+                if (deck.cards && deck.cards.length > 0) {
+                    for (let i = 0; i < deck.cards.length; i++) {
+                        const card = deck.cards[i];
+                        await client.query(
+                            `INSERT INTO cards (deck_id, front, back, media_url, sort_order, created_at, updated_at)
+                             VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+                            [
+                                deckId,
+                                card.front,
+                                card.back,
+                                card.mediaUrl || null,
+                                i,
+
+                            ]
+                        );
+                    }
+                }
             }
         }
 
@@ -226,13 +276,11 @@ async function saveUserData(dbUserId, data) {
 }
 
 // Sort folders so parents come before children (topological sort).
-// This ensures parent_folder_id references are valid when inserting.
 function sortFoldersForInsert(folders) {
     const sorted = [];
     const remaining = [...folders];
     const insertedIds = new Set();
 
-    // Safety limit to prevent infinite loops from circular references
     let maxIterations = folders.length * folders.length;
     let iterations = 0;
 
@@ -242,10 +290,10 @@ function sortFoldersForInsert(folders) {
             const folder = remaining[i];
             if (
                 !folder.parentFolderId ||
-                insertedIds.has(folder.parentFolderId)
+                insertedIds.has(String(folder.parentFolderId))
             ) {
                 sorted.push(folder);
-                insertedIds.add(folder.id);
+                insertedIds.add(String(folder.id));
                 remaining.splice(i, 1);
             }
         }
@@ -326,7 +374,9 @@ exports.handler = async function (event) {
             body: JSON.stringify({
                 error: "Server error.",
                 message: error.message,
-                detail: error.stack ? error.stack.split("\n").slice(0, 3).join(" | ") : "",
+                detail: error.stack
+                    ? error.stack.split("\n").slice(0, 3).join(" | ")
+                    : "",
             }),
         };
     }
