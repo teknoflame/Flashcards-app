@@ -119,7 +119,8 @@
             });
 
             if (!dataResponse.ok) {
-                console.warn('Could not load data from database:', dataResponse.status);
+                var errorBody = await dataResponse.json().catch(function() { return {}; });
+                console.warn('Could not load data from database:', dataResponse.status, errorBody);
                 return;
             }
 
