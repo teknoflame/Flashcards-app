@@ -1,11 +1,12 @@
 // netlify/functions/setup-database.js
 //
-// Creates tables that don't already exist in the Neon database.
+// Updates the database schema to match what SparkDeck needs.
 //
-// Your database already has: users, folders, decks (with JSONB cards)
-// This function creates the additional tables needed for settings and stats.
+// What it does:
+//   - Adds missing columns to existing tables (parent_folder_id on folders)
+//   - Creates new tables if they don't exist (user_settings, study_sessions)
 //
-// Safe to run multiple times — uses IF NOT EXISTS.
+// Safe to run multiple times — uses IF NOT EXISTS and IF NOT EXISTS everywhere.
 //
 // HOW TO USE:
 //   1. Make sure DATABASE_URL is set in your .env.local
@@ -15,8 +16,16 @@
 const { query } = require("./utils/db");
 
 const SCHEMA_SQL = `
+-- Add parent_folder_id to folders table if it doesn't exist yet.
+-- This enables nested folders (subfolders).
+-- Safe to run if column already exists — IF NOT EXISTS prevents errors.
+ALTER TABLE folders ADD COLUMN IF NOT EXISTS
+    parent_folder_id UUID REFERENCES folders(id) ON DELETE CASCADE;
+
+-- Index for parent folder lookups
+CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders(parent_folder_id);
+
 -- User settings table: per-user preferences (dark mode, font size, etc.)
--- References users(id) which is UUID in the existing schema.
 CREATE TABLE IF NOT EXISTS user_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -46,11 +55,18 @@ exports.handler = async function () {
     try {
         await query(SCHEMA_SQL);
 
-        // Show all tables to verify
-        const result = await query(
+        // Show all tables and the folders columns to verify
+        const tablesResult = await query(
             "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
         );
-        const tables = result.rows.map((r) => r.table_name);
+        const tables = tablesResult.rows.map((r) => r.table_name);
+
+        const columnsResult = await query(
+            "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'folders' ORDER BY ordinal_position"
+        );
+        const folderColumns = columnsResult.rows.map(
+            (r) => r.column_name + " (" + r.data_type + ")"
+        );
 
         return {
             statusCode: 200,
@@ -58,8 +74,9 @@ exports.handler = async function () {
             body: JSON.stringify({
                 success: true,
                 message:
-                    "Database schema updated! New tables created if they did not exist.",
+                    "Database schema updated successfully!",
                 tables: tables,
+                folderColumns: folderColumns,
             }),
         };
     } catch (error) {
