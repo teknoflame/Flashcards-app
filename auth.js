@@ -3,6 +3,7 @@
 // Handles Firebase Authentication for SparkDeck.
 // This file manages sign up, sign in, sign out, and auth state changes.
 // It shows/hides the auth screen vs the main app based on login status.
+// After login, it syncs user data with the Neon database via Netlify Functions.
 
 (function () {
     // ---- DOM References ----
@@ -89,6 +90,93 @@
             default:
                 return 'Something went wrong. Please try again.';
         }
+    }
+
+    // ---- Database Sync ----
+    // After login, sync user data between localStorage and the Neon database.
+    // The database is the source of truth for cross-device persistence.
+    // localStorage acts as a fast cache for the current session.
+
+    async function syncWithDatabase(firebaseUser) {
+        try {
+            var token = await firebaseUser.getIdToken();
+
+            // Step 1: Ensure user record exists in the database
+            var userResponse = await fetch('/.netlify/functions/api-user', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (!userResponse.ok) {
+                console.warn('Could not register user in database:', userResponse.status);
+                return;
+            }
+
+            // Step 2: Load user data from the database
+            var dataResponse = await fetch('/.netlify/functions/api-data', {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (!dataResponse.ok) {
+                console.warn('Could not load data from database:', dataResponse.status);
+                return;
+            }
+
+            var cloudData = await dataResponse.json();
+
+            // Step 3: Decide which direction to sync
+            var hasCloudDecks = cloudData.decks && cloudData.decks.length > 0;
+            var hasCloudFolders = cloudData.folders && cloudData.folders.length > 0;
+            var hasCloudData = hasCloudDecks || hasCloudFolders;
+
+            if (hasCloudData) {
+                // Database has data — load it into the app
+                if (window.app && window.app.loadFromCloud) {
+                    window.app.loadFromCloud(cloudData);
+                }
+                announce('Data synced from cloud.');
+            } else {
+                // Database is empty — upload current localStorage data
+                var hasLocalDecks = window.app && window.app.decks && window.app.decks.length > 0;
+                var hasLocalFolders = window.app && window.app.folders && window.app.folders.length > 0;
+
+                if (hasLocalDecks || hasLocalFolders) {
+                    await uploadToDatabase(token);
+                    announce('Data backed up to cloud.');
+                }
+            }
+
+            // Store the token getter so app.js can use it for saves
+            if (window.app) {
+                window.app._getAuthToken = function () {
+                    return firebaseUser.getIdToken();
+                };
+            }
+        } catch (error) {
+            // Sync failure is non-fatal — app works with localStorage
+            console.warn('Database sync failed (app still works locally):', error);
+        }
+    }
+
+    async function uploadToDatabase(token) {
+        if (!window.app) return;
+
+        var data = {
+            decks: window.app.decks || [],
+            folders: window.app.folders || [],
+            settings: window.app.settings || {},
+            stats: window.app.stats || { studySessions: [] }
+        };
+
+        await fetch('/.netlify/functions/api-data', {
+            method: 'PUT',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
     }
 
     // ---- Form Toggle ----
@@ -215,6 +303,9 @@
                 window.app = new SparkDeckApp();
             }
 
+            // Sync data with the database (async, doesn't block the UI)
+            syncWithDatabase(user);
+
             // Move focus to the main app heading
             var heading = appContainer.querySelector('h1');
             if (heading) {
@@ -229,6 +320,11 @@
             // Clear the user email display
             if (userEmailDisplay) {
                 userEmailDisplay.textContent = '';
+            }
+
+            // Clear the token getter
+            if (window.app) {
+                window.app._getAuthToken = null;
             }
 
             // Move focus to the auth screen heading

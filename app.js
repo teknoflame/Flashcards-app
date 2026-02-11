@@ -730,6 +730,7 @@ class SparkDeckApp {
     saveDecks() {
         try {
             localStorage.setItem('sparkdeck-decks', JSON.stringify(this.decks));
+            this.syncToCloud();
             return true;
         } catch (error) {
             console.warn('Could not save decks:', error);
@@ -762,6 +763,7 @@ class SparkDeckApp {
     saveFolders() {
         try {
             localStorage.setItem('sparkdeck-folders', JSON.stringify(this.folders));
+            this.syncToCloud();
             return true;
         } catch (error) {
             console.warn('Could not save folders:', error);
@@ -797,6 +799,7 @@ class SparkDeckApp {
     saveSettings() {
         try {
             localStorage.setItem('sparkdeck-settings', JSON.stringify(this.settings));
+            this.syncToCloud();
             return true;
         } catch (error) {
             console.warn('Could not save settings:', error);
@@ -933,10 +936,101 @@ class SparkDeckApp {
     saveStats() {
         try {
             localStorage.setItem('sparkdeck-stats', JSON.stringify(this.stats));
+            this.syncToCloud();
             return true;
         } catch (error) {
             console.warn('Could not save stats:', error);
             return false;
+        }
+    }
+
+    // ---- Cloud Sync Methods ----
+    // These methods handle syncing data between localStorage and the Neon database.
+    // The database is the source of truth for cross-device access.
+    // localStorage is the fast cache for the current session.
+
+    // Load data received from the database into the app.
+    // Called by auth.js after fetching from the api-data endpoint.
+    loadFromCloud(data) {
+        if (data.folders && Array.isArray(data.folders)) {
+            this.folders = data.folders;
+            localStorage.setItem('sparkdeck-folders', JSON.stringify(this.folders));
+        }
+
+        if (data.decks && Array.isArray(data.decks)) {
+            // Strip any _dbId fields — the frontend doesn't need them
+            this.decks = data.decks.map(d => {
+                const { _dbId, ...deck } = d;
+                return deck;
+            });
+            localStorage.setItem('sparkdeck-decks', JSON.stringify(this.decks));
+        }
+
+        if (data.settings) {
+            this.settings = { ...this.settings, ...data.settings };
+            localStorage.setItem('sparkdeck-settings', JSON.stringify(this.settings));
+            this.applySettings();
+        }
+
+        if (data.stats) {
+            this.stats = { ...this.stats, ...data.stats };
+            localStorage.setItem('sparkdeck-stats', JSON.stringify(this.stats));
+        }
+
+        // Re-render everything with the new data
+        this.renderDecks();
+        this.renderStats();
+    }
+
+    // Apply all settings (called after loading from cloud)
+    applySettings() {
+        this.applyAllVisionSettings();
+        this.applyStatsTabVisibility();
+        this.updateStatsToggleButton();
+    }
+
+    // Send all current data to the database.
+    // Uses debouncing to avoid flooding the API with rapid saves.
+    syncToCloud() {
+        // _getAuthToken is set by auth.js after login
+        if (!this._getAuthToken) return;
+
+        // Debounce: wait 2 seconds after the last save before syncing
+        if (this._syncTimeout) {
+            clearTimeout(this._syncTimeout);
+        }
+
+        this._syncTimeout = setTimeout(() => {
+            this._doCloudSync();
+        }, 2000);
+    }
+
+    async _doCloudSync() {
+        try {
+            const token = await this._getAuthToken();
+
+            const data = {
+                decks: this.decks || [],
+                folders: this.folders || [],
+                settings: this.settings || {},
+                stats: this.stats || { studySessions: [] }
+            };
+
+            const response = await fetch('/.netlify/functions/api-data', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                console.warn('Cloud sync failed:', response.status);
+            }
+        } catch (error) {
+            // Non-fatal — localStorage still has the data
+            console.warn('Cloud sync error (data saved locally):', error);
         }
     }
 
