@@ -46,13 +46,20 @@ exports.handler = async function (event) {
 
         const user = result.rows[0];
 
-        // Also ensure default settings exist for this user
-        await query(
-            `INSERT INTO user_settings (user_id)
-             VALUES ($1)
-             ON CONFLICT (user_id) DO NOTHING`,
-            [user.id]
-        );
+        // Also ensure default settings exist for this user.
+        // Wrapped in try/catch because user_settings table may not exist yet
+        // (user needs to run setup-database first to create it).
+        try {
+            await query(
+                `INSERT INTO user_settings (user_id)
+                 VALUES ($1)
+                 ON CONFLICT (user_id) DO NOTHING`,
+                [user.id]
+            );
+        } catch (settingsErr) {
+            // Non-fatal — settings table may not exist yet
+            console.warn("Could not create default settings:", settingsErr.message);
+        }
 
         return {
             statusCode: 200,

@@ -958,11 +958,7 @@ class SparkDeckApp {
         }
 
         if (data.decks && Array.isArray(data.decks)) {
-            // Strip any _dbId fields — the frontend doesn't need them
-            this.decks = data.decks.map(d => {
-                const { _dbId, ...deck } = d;
-                return deck;
-            });
+            this.decks = data.decks;
             localStorage.setItem('sparkdeck-decks', JSON.stringify(this.decks));
         }
 
