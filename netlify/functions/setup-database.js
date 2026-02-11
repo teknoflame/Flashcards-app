@@ -18,9 +18,9 @@ const { query } = require("./utils/db");
 const SCHEMA_SQL = `
 -- Add parent_folder_id to folders table if it doesn't exist yet.
 -- This enables nested folders (subfolders).
--- Safe to run if column already exists — IF NOT EXISTS prevents errors.
-ALTER TABLE folders ADD COLUMN IF NOT EXISTS
-    parent_folder_id UUID REFERENCES folders(id) ON DELETE CASCADE;
+-- Added as a plain UUID column (no foreign key constraint needed —
+-- the app manages parent-child relationships in code).
+ALTER TABLE folders ADD COLUMN IF NOT EXISTS parent_folder_id UUID;
 
 -- Index for parent folder lookups
 CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders(parent_folder_id);
