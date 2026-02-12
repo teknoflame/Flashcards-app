@@ -266,6 +266,10 @@ class SparkDeckApp {
 
         // Back to decks button
         this.backToDecksBtn = document.getElementById('back-to-decks-btn');
+
+        // Import/Export buttons (Settings)
+        this.importBtn = document.getElementById('import-btn');
+        this.exportAllBtn = document.getElementById('export-all-btn');
     }
 
     setupEventListeners() {
@@ -484,6 +488,14 @@ class SparkDeckApp {
         // Reset stats button
         if (this.resetStatsBtn) {
             this.resetStatsBtn.addEventListener('click', () => this.resetStats());
+        }
+
+        // Import/Export buttons (Settings)
+        if (this.exportAllBtn) {
+            this.exportAllBtn.addEventListener('click', () => this.exportAllData());
+        }
+        if (this.importBtn) {
+            this.importBtn.addEventListener('click', () => this.triggerImport());
         }
 
         // Stats period filter buttons
@@ -1373,9 +1385,13 @@ class SparkDeckApp {
                 <div class="empty-state">
                     <h3>Welcome to SparkDeck!</h3>
                     <p>Create your first deck to get started studying.</p>
-                    <button type="button" onclick="app.switchTab('create')">Create Your First Deck</button>
+                    <button type="button" class="empty-create-btn">Create Your First Deck</button>
                 </div>
             `;
+            const emptyCreateBtn = this.decksList.querySelector('.empty-create-btn');
+            if (emptyCreateBtn) {
+                emptyCreateBtn.addEventListener('click', () => this.switchTab('create'));
+            }
             this.updateSearchResultsInfo(0, 0);
             return;
         }
@@ -1429,18 +1445,29 @@ class SparkDeckApp {
                     emptyMsg.innerHTML = `
                         <p>This folder is empty.</p>
                         <div class="button-group">
-                            <button type="button" onclick="app.promptAddFolder({ parentFolderId: '${this.currentFolderId}' })">Create Subfolder</button>
-                            <button type="button" onclick="app.switchTab('create')">Create Deck</button>
+                            <button type="button" class="empty-subfolder-btn">Create Subfolder</button>
+                            <button type="button" class="empty-create-btn">Create Deck</button>
                         </div>
                     `;
+                    const emptySubfolderBtn = emptyMsg.querySelector('.empty-subfolder-btn');
+                    if (emptySubfolderBtn) {
+                        emptySubfolderBtn.addEventListener('click', () => this.promptAddFolder({ parentFolderId: this.currentFolderId }));
+                    }
+                    const emptyCreateDeckBtn = emptyMsg.querySelector('.empty-create-btn');
+                    if (emptyCreateDeckBtn) {
+                        emptyCreateDeckBtn.addEventListener('click', () => this.switchTab('create'));
+                    }
                     this.decksList.appendChild(emptyMsg);
                 } else {
                     // Show "Create Subfolder" button
                     const actionSection = document.createElement('div');
                     actionSection.className = 'folder-actions-bar';
                     actionSection.innerHTML = `
-                        <button type="button" onclick="app.promptAddFolder({ parentFolderId: '${this.currentFolderId}' })">Create Subfolder</button>
+                        <button type="button" class="action-subfolder-btn">Create Subfolder</button>
                     `;
+                    actionSection.querySelector('.action-subfolder-btn').addEventListener('click', () => {
+                        this.promptAddFolder({ parentFolderId: this.currentFolderId });
+                    });
                     this.decksList.appendChild(actionSection);
 
                     // Show subfolders
@@ -1697,9 +1724,15 @@ class SparkDeckApp {
         const folderActions = document.createElement('div');
         folderActions.className = 'folder-actions';
         folderActions.innerHTML = `
-            <button type="button" onclick="app.renameFolder('${folder.id}')" aria-label="Rename folder ${folder.name}">Rename</button>
-            <button type="button" onclick="app.deleteFolder('${folder.id}')" aria-label="Delete folder ${folder.name}">Delete</button>
+            <button type="button" class="folder-rename-btn" aria-label="Rename folder ${folder.name}">Rename</button>
+            <button type="button" class="folder-delete-btn" aria-label="Delete folder ${folder.name}">Delete</button>
         `;
+        folderActions.querySelector('.folder-rename-btn').addEventListener('click', () => {
+            this.renameFolder(folder.id);
+        });
+        folderActions.querySelector('.folder-delete-btn').addEventListener('click', () => {
+            this.deleteFolder(folder.id);
+        });
         folderCard.appendChild(folderActions);
 
         return folderCard;
@@ -1741,8 +1774,8 @@ class SparkDeckApp {
             </div>
             <p>${deck.cards.length} cards • ${deck.category}</p>
             <div class="button-group deck-actions">
-                <button type="button" onclick="app.startStudy(${deckIndex})" aria-label="Study deck ${deck.name}">Study</button>
-                <button type="button" onclick="app.promptQuizMode(${deckIndex})" aria-label="Quiz deck ${deck.name}" ${deck.cards.length < 4 ? 'disabled title="Need at least 4 cards for quiz"' : ''}>Quiz</button>
+                <button type="button" class="deck-study-btn" data-deck-index="${deckIndex}" aria-label="Study deck ${deck.name}">Study</button>
+                <button type="button" class="deck-quiz-btn" data-deck-index="${deckIndex}" aria-label="Quiz deck ${deck.name}" ${deck.cards.length < 4 ? 'disabled title="Need at least 4 cards for quiz"' : ''}>Quiz</button>
             </div>
         `;
 
@@ -1772,6 +1805,20 @@ class SparkDeckApp {
 
         // Setup keyboard navigation for menu
         this.setupDeckMenuKeyboard(menuBtn, menu, menuItems);
+
+        // Setup deck card Study/Quiz buttons
+        const studyBtn = deckEl.querySelector('.deck-study-btn');
+        if (studyBtn) {
+            studyBtn.addEventListener('click', () => {
+                this.startStudy(parseInt(studyBtn.dataset.deckIndex, 10));
+            });
+        }
+        const quizBtn = deckEl.querySelector('.deck-quiz-btn');
+        if (quizBtn) {
+            quizBtn.addEventListener('click', () => {
+                this.promptQuizMode(parseInt(quizBtn.dataset.deckIndex, 10));
+            });
+        }
 
         return deckEl;
     }
@@ -2175,13 +2222,15 @@ class SparkDeckApp {
                 <div class="deck-header">
                     <span>Card ${index + 1}</span>
                     <div class="card-actions">
-                        <button type="button" onclick="app.editCard(${index})" aria-label="Edit card ${index + 1}">Edit</button>
-                        <button type="button" onclick="app.removeCard(${index})" aria-label="Remove card ${index + 1}">Remove</button>
+                        <button type="button" class="card-edit-btn" aria-label="Edit card ${index + 1}">Edit</button>
+                        <button type="button" class="card-remove-btn" aria-label="Remove card ${index + 1}">Remove</button>
                     </div>
                 </div>
                 <p><strong>Front:</strong> ${escapeHtml(card.front)}</p>
                 <p><strong>Back:</strong> ${escapeHtml(card.back)}</p>
             `;
+            cardElement.querySelector('.card-edit-btn').addEventListener('click', () => this.editCard(index));
+            cardElement.querySelector('.card-remove-btn').addEventListener('click', () => this.removeCard(index));
             this.previewCards.appendChild(cardElement);
         });
 
