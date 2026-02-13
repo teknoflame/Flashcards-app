@@ -352,7 +352,42 @@ exports.handler = async function (event) {
         }
 
         if (event.httpMethod === "PUT") {
+            // Reject oversized payloads (5MB limit)
+            if (event.body && event.body.length > 5 * 1024 * 1024) {
+                return {
+                    statusCode: 413,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ error: "Payload too large." }),
+                };
+            }
+
             const data = JSON.parse(event.body);
+
+            // Validate basic shape
+            if (typeof data !== "object" || data === null || Array.isArray(data)) {
+                return {
+                    statusCode: 400,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ error: "Invalid data format." }),
+                };
+            }
+
+            // Limit deck/folder/session counts
+            if (data.decks && data.decks.length > 500) {
+                return {
+                    statusCode: 400,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ error: "Too many decks (max 500)." }),
+                };
+            }
+            if (data.folders && data.folders.length > 200) {
+                return {
+                    statusCode: 400,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ error: "Too many folders (max 200)." }),
+                };
+            }
+
             await saveUserData(dbUserId, data);
             return {
                 statusCode: 200,
@@ -371,13 +406,7 @@ exports.handler = async function (event) {
         return {
             statusCode: 500,
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                error: "Server error.",
-                message: error.message,
-                detail: error.stack
-                    ? error.stack.split("\n").slice(0, 3).join(" | ")
-                    : "",
-            }),
+            body: JSON.stringify({ error: "Server error." }),
         };
     }
 };

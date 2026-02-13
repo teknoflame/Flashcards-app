@@ -359,8 +359,8 @@ class SparkDeckApp {
                 }
             }
 
-            // Global navigation hotkeys (only when not typing and no modal open)
-            if (!isTyping && !isModalOpen && !this.isHelpOpen()) {
+            // Global navigation hotkeys (only when not typing and no modal/overlay open)
+            if (!isTyping && !isModalOpen && !this.isHelpOpen() && !this.quizMode) {
                 switch(e.key.toLowerCase()) {
                     case 'd':
                         // Go to My Decks tab
@@ -520,6 +520,14 @@ class SparkDeckApp {
         }
     }
 
+    // Escape HTML entities to prevent XSS when interpolating user data into innerHTML
+    escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
     announce(message) {
         this.announcements.textContent = message;
         setTimeout(() => {
@@ -666,7 +674,7 @@ class SparkDeckApp {
             } else if (this.categoryFilter) {
                 message += ` in category ${this.categoryFilter}`;
             }
-            this.searchResultsInfo.innerHTML = `<span>${message}</span>`;
+            this.searchResultsInfo.textContent = message;
         } else {
             this.searchResultsInfo.classList.remove('no-results');
             // Simpler message: just show how many were found
@@ -678,7 +686,7 @@ class SparkDeckApp {
             } else if (this.categoryFilter) {
                 message += ` in category ${this.categoryFilter}`;
             }
-            this.searchResultsInfo.innerHTML = `<span>${message}</span>`;
+            this.searchResultsInfo.textContent = message;
         }
     }
 
@@ -964,6 +972,10 @@ class SparkDeckApp {
     // Load data received from the database into the app.
     // Called by auth.js after fetching from the api-data endpoint.
     loadFromCloud(data) {
+        // End any active study/quiz session before replacing data
+        if (this.currentDeck) this.endStudy();
+        if (this.quizMode) this.endQuiz();
+
         if (data.folders && Array.isArray(data.folders)) {
             this.folders = data.folders;
             localStorage.setItem('sparkdeck-folders', JSON.stringify(this.folders));
@@ -1311,7 +1323,7 @@ class SparkDeckApp {
         });
         if (!newName || !newName.trim()) return;
         const finalName = newName.trim();
-        const dup = this.folders.find(f => f.id !== folderId && f.name.toLowerCase() === finalName.toLowerCase());
+        const dup = this.folders.find(f => f.id !== folderId && f.parentFolderId === folder.parentFolderId && f.name.toLowerCase() === finalName.toLowerCase());
         if (dup) {
             this.announce(`A folder named "${finalName}" already exists.`);
             return;
@@ -1707,13 +1719,14 @@ class SparkDeckApp {
         if (subfolderCount > 0) countParts.push(`${subfolderCount} ${subfolderCount === 1 ? 'folder' : 'folders'}`);
         const countText = countParts.length > 0 ? countParts.join(', ') : 'Empty';
 
+        const safeFolderName = this.escapeHtml(folder.name);
         folderButton.setAttribute('aria-label', `Open folder ${folder.name}, contains ${countText}`);
         folderButton.onclick = () => this.navigateToFolder(folder.id);
 
         folderButton.innerHTML = `
             <div class="folder-card-icon">📁</div>
             <div class="folder-card-content">
-                <h4 id="folder-title-${folder.id}" class="folder-card-title">${folder.name}</h4>
+                <h4 id="folder-title-${folder.id}" class="folder-card-title">${safeFolderName}</h4>
                 <p class="folder-card-count">${countText}</p>
             </div>
         `;
@@ -1724,8 +1737,8 @@ class SparkDeckApp {
         const folderActions = document.createElement('div');
         folderActions.className = 'folder-actions';
         folderActions.innerHTML = `
-            <button type="button" class="folder-rename-btn" aria-label="Rename folder ${folder.name}">Rename</button>
-            <button type="button" class="folder-delete-btn" aria-label="Delete folder ${folder.name}">Delete</button>
+            <button type="button" class="folder-rename-btn" aria-label="Rename folder ${safeFolderName}">Rename</button>
+            <button type="button" class="folder-delete-btn" aria-label="Delete folder ${safeFolderName}">Delete</button>
         `;
         folderActions.querySelector('.folder-rename-btn').addEventListener('click', () => {
             this.renameFolder(folder.id);
@@ -1746,9 +1759,11 @@ class SparkDeckApp {
         const menuId = `deck-menu-${deckIndex}`;
         const menuBtnId = `deck-menu-btn-${deckIndex}`;
 
+        const safeName = this.escapeHtml(deck.name);
+        const safeCategory = this.escapeHtml(deck.category);
         deckEl.innerHTML = `
             <div class="deck-header">
-                <h4 id="deck-title-${deckIndex}" class="deck-title">${deck.name}</h4>
+                <h4 id="deck-title-${deckIndex}" class="deck-title">${safeName}</h4>
                 <div class="deck-menu-container">
                     <button type="button"
                             id="${menuBtnId}"
@@ -1756,7 +1771,7 @@ class SparkDeckApp {
                             aria-haspopup="menu"
                             aria-expanded="false"
                             aria-controls="${menuId}"
-                            aria-label="Actions for ${deck.name}">⋮</button>
+                            aria-label="Actions for ${safeName}">⋮</button>
                     <div id="${menuId}"
                          class="deck-menu"
                          role="menu"
@@ -1772,10 +1787,10 @@ class SparkDeckApp {
                     </div>
                 </div>
             </div>
-            <p>${deck.cards.length} cards • ${deck.category}</p>
+            <p>${deck.cards.length} cards &bull; ${safeCategory}</p>
             <div class="button-group deck-actions">
-                <button type="button" class="deck-study-btn" data-deck-index="${deckIndex}" aria-label="Study deck ${deck.name}">Study</button>
-                <button type="button" class="deck-quiz-btn" data-deck-index="${deckIndex}" aria-label="Quiz deck ${deck.name}" ${deck.cards.length < 4 ? 'disabled title="Need at least 4 cards for quiz"' : ''}>Quiz</button>
+                <button type="button" class="deck-study-btn" data-deck-index="${deckIndex}" aria-label="Study deck ${safeName}">Study</button>
+                <button type="button" class="deck-quiz-btn" data-deck-index="${deckIndex}" aria-label="Quiz deck ${safeName}" ${deck.cards.length < 4 ? 'disabled title="Need at least 4 cards for quiz"' : ''}>Quiz</button>
             </div>
         `;
 
@@ -2211,13 +2226,6 @@ class SparkDeckApp {
                 cardElement.classList.add('editing');
             }
 
-            // Escape HTML to prevent XSS
-            const escapeHtml = (str) => {
-                const div = document.createElement('div');
-                div.textContent = str;
-                return div.innerHTML;
-            };
-
             cardElement.innerHTML = `
                 <div class="deck-header">
                     <span>Card ${index + 1}</span>
@@ -2226,8 +2234,8 @@ class SparkDeckApp {
                         <button type="button" class="card-remove-btn" aria-label="Remove card ${index + 1}">Remove</button>
                     </div>
                 </div>
-                <p><strong>Front:</strong> ${escapeHtml(card.front)}</p>
-                <p><strong>Back:</strong> ${escapeHtml(card.back)}</p>
+                <p><strong>Front:</strong> ${this.escapeHtml(card.front)}</p>
+                <p><strong>Back:</strong> ${this.escapeHtml(card.back)}</p>
             `;
             cardElement.querySelector('.card-edit-btn').addEventListener('click', () => this.editCard(index));
             cardElement.querySelector('.card-remove-btn').addEventListener('click', () => this.removeCard(index));
@@ -2239,6 +2247,22 @@ class SparkDeckApp {
 
     removeCard(index) {
         this.tempCards.splice(index, 1);
+
+        // Adjust editingCardIndex if a card is removed during editing
+        if (this.editingCardIndex !== null && this.editingCardIndex !== undefined) {
+            if (index === this.editingCardIndex) {
+                // The card being edited was removed — cancel edit
+                this.editingCardIndex = null;
+                this.cardFront.value = '';
+                this.cardBack.value = '';
+                if (this.cardMediaInput) this.cardMediaInput.value = '';
+                if (this.addCardBtn) this.addCardBtn.textContent = 'Add Card';
+                if (this.cancelCardEditBtn) this.cancelCardEditBtn.classList.add('hidden');
+            } else if (index < this.editingCardIndex) {
+                this.editingCardIndex--;
+            }
+        }
+
         if (this.tempCards.length === 0) {
             this.cardsPreview.classList.add('hidden');
         } else {
@@ -2356,8 +2380,15 @@ class SparkDeckApp {
     }
 
     startStudy(deckIndex) {
-        this.soundManager.play('enterStudy');
         const deck = this.decks[deckIndex];
+        if (!deck || !deck.cards || deck.cards.length === 0) {
+            this.announce('This deck has no cards to study.');
+            return;
+        }
+        // Prevent double-click re-entry
+        if (this.currentDeck) return;
+
+        this.soundManager.play('enterStudy');
 
         // Create a shuffled copy of the cards
         this.currentDeck = {
@@ -2447,6 +2478,9 @@ class SparkDeckApp {
     // ===== Quiz Mode Methods =====
 
     async promptQuizMode(deckIndex) {
+        // Prevent re-entry if already in quiz or study mode
+        if (this.quizMode || this.currentDeck) return;
+
         const deck = this.decks[deckIndex];
         if (!deck || deck.cards.length < 4) {
             this.announce('You need at least 4 cards to start a quiz.');
@@ -3095,7 +3129,7 @@ SparkDeckApp.prototype.openTextModal = function({ title, label, initialValue = '
         this.modalDesc.textContent = `${label} input dialog.`;
         this.modalContent.innerHTML = `
             <label for="${inputId}">${label}:</label>
-            <input type="text" id="${inputId}" value="${initialValue.replace(/\"/g, '&quot;')}">
+            <input type="text" id="${inputId}" value="${this.escapeHtml(initialValue)}">
         `;
         this.modalConfirmBtn.textContent = confirmText;
         this.modalCancelBtn.textContent = cancelText;
@@ -3123,13 +3157,16 @@ SparkDeckApp.prototype.openConfirmModal = function({ title, message, confirmText
     return new Promise((resolve) => {
         this.modalTitle.textContent = title;
         this.modalDesc.textContent = message;
-        this.modalContent.innerHTML = `<p>${message}</p>`;
+        const p = document.createElement('p');
+        p.textContent = message;
+        this.modalContent.innerHTML = '';
+        this.modalContent.appendChild(p);
         this.modalConfirmBtn.textContent = confirmText;
         this.modalCancelBtn.textContent = cancelText;
-        this._openModalCommon({
+        const cleanup = this._openModalCommon({
             initialFocus: this.modalConfirmBtn,
-            onConfirm: () => resolve(true),
-            onCancel: () => resolve(false),
+            onConfirm: () => { cleanup(); resolve(true); },
+            onCancel: () => { cleanup(); resolve(false); },
         });
     });
 };
@@ -3141,7 +3178,7 @@ SparkDeckApp.prototype.openSelectModal = function({ title, label, options, initi
         this.modalDesc.textContent = `${label} selection dialog.`;
 
         let optionsHtml = options.map(opt =>
-            `<option value="${opt.value}"${opt.value === initialValue ? ' selected' : ''}>${opt.label}</option>`
+            `<option value="${this.escapeHtml(opt.value)}"${opt.value === initialValue ? ' selected' : ''}>${this.escapeHtml(opt.label)}</option>`
         ).join('');
 
         this.modalContent.innerHTML = `
@@ -3317,6 +3354,27 @@ SparkDeckApp.prototype.triggerImport = function() {
     fileInput.click();
 };
 
+// Sanitize a string by stripping HTML tags (for imported data)
+SparkDeckApp.prototype._stripHtml = function(str) {
+    if (typeof str !== 'string') return '';
+    const div = document.createElement('div');
+    div.innerHTML = str;
+    return div.textContent || '';
+};
+
+// Sanitize and validate cards from imported data
+SparkDeckApp.prototype._sanitizeCards = function(cards) {
+    if (!Array.isArray(cards)) return [];
+    return cards
+        .filter(c => c && c.front && c.back)
+        .map(c => ({
+            front: this._stripHtml(String(c.front)).slice(0, 5000),
+            back: this._stripHtml(String(c.back)).slice(0, 5000),
+            mediaUrl: (typeof c.mediaUrl === 'string' && /^https?:\/\//i.test(c.mediaUrl))
+                ? c.mediaUrl.slice(0, 2000) : undefined
+        }));
+};
+
 // Handle the imported file
 SparkDeckApp.prototype._handleImportFile = async function(event) {
     const file = event.target.files[0];
@@ -3352,12 +3410,22 @@ SparkDeckApp.prototype._importSingleDeck = async function(data) {
         return;
     }
 
+    // Sanitize imported data
+    const safeName = this._stripHtml(String(deck.name)).slice(0, 200);
+    const safeCategory = this._stripHtml(String(deck.category || 'Other')).slice(0, 100);
+    const safeCards = this._sanitizeCards(deck.cards);
+
+    if (!safeName) {
+        this.announce('Invalid deck name.');
+        return;
+    }
+
     // Check for duplicate name
-    const existingIndex = this.decks.findIndex(d => d.name.toLowerCase() === deck.name.toLowerCase());
+    const existingIndex = this.decks.findIndex(d => d.name.toLowerCase() === safeName.toLowerCase());
     if (existingIndex !== -1) {
         const confirmed = await this.openConfirmModal({
             title: 'Deck already exists',
-            message: `A deck named "${deck.name}" already exists. Do you want to replace it?`,
+            message: `A deck named "${safeName}" already exists. Do you want to replace it?`,
             confirmText: 'Replace',
             cancelText: 'Cancel'
         });
@@ -3367,26 +3435,26 @@ SparkDeckApp.prototype._importSingleDeck = async function(data) {
         }
         // Replace existing deck
         this.decks[existingIndex] = {
-            name: deck.name,
-            category: deck.category || 'Other',
+            name: safeName,
+            category: safeCategory,
             folderId: null, // Don't preserve folder from import
-            cards: deck.cards,
+            cards: safeCards,
             created: deck.created || new Date().toISOString()
         };
     } else {
         // Add new deck
         this.decks.push({
-            name: deck.name,
-            category: deck.category || 'Other',
+            name: safeName,
+            category: safeCategory,
             folderId: null,
-            cards: deck.cards,
+            cards: safeCards,
             created: deck.created || new Date().toISOString()
         });
     }
 
     if (this.saveDecks()) {
         this.renderDecks();
-        this.announce(`Deck "${deck.name}" imported successfully with ${deck.cards.length} cards.`);
+        this.announce(`Deck "${safeName}" imported successfully with ${safeCards.length} cards.`);
     } else {
         this.announce('Error saving imported deck.');
     }
@@ -3420,9 +3488,12 @@ SparkDeckApp.prototype._importBackup = async function(data) {
     // Import folders first (if any)
     if (Array.isArray(data.folders)) {
         for (const folder of data.folders) {
+            const safeFolderName = this._stripHtml(String(folder.name || '')).slice(0, 200);
+            if (!safeFolderName) continue;
+
             // Check for duplicate folder name at same level
             const existingFolder = this.folders.find(f =>
-                f.name.toLowerCase() === folder.name.toLowerCase() &&
+                f.name.toLowerCase() === safeFolderName.toLowerCase() &&
                 f.parentFolderId === (folderIdMap.get(folder.parentFolderId) || folder.parentFolderId || null)
             );
 
@@ -3433,7 +3504,7 @@ SparkDeckApp.prototype._importBackup = async function(data) {
                 // Create new folder with new ID
                 const newFolder = {
                     id: this.generateFolderId(),
-                    name: folder.name,
+                    name: safeFolderName,
                     parentFolderId: folderIdMap.get(folder.parentFolderId) || folder.parentFolderId || null,
                     created: folder.created || new Date().toISOString()
                 };
@@ -3452,8 +3523,13 @@ SparkDeckApp.prototype._importBackup = async function(data) {
     for (const deck of data.decks) {
         if (!deck.name || !Array.isArray(deck.cards)) continue;
 
+        const safeName = this._stripHtml(String(deck.name)).slice(0, 200);
+        const safeCategory = this._stripHtml(String(deck.category || 'Other')).slice(0, 100);
+        const safeCards = this._sanitizeCards(deck.cards);
+        if (!safeName) continue;
+
         // Check for duplicate name
-        const existingIndex = this.decks.findIndex(d => d.name.toLowerCase() === deck.name.toLowerCase());
+        const existingIndex = this.decks.findIndex(d => d.name.toLowerCase() === safeName.toLowerCase());
         if (existingIndex !== -1) {
             skippedCount++;
             continue; // Skip duplicates in bulk import
@@ -3465,10 +3541,10 @@ SparkDeckApp.prototype._importBackup = async function(data) {
         const folderExists = mappedFolderId ? this.folders.some(f => f.id === mappedFolderId) : true;
 
         this.decks.push({
-            name: deck.name,
-            category: deck.category || 'Other',
+            name: safeName,
+            category: safeCategory,
             folderId: folderExists ? mappedFolderId : null,
-            cards: deck.cards,
+            cards: safeCards,
             created: deck.created || new Date().toISOString()
         });
         importedCount++;

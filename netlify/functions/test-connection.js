@@ -15,7 +15,17 @@
 
 const { Client } = require("pg");
 
-exports.handler = async function () {
+exports.handler = async function (event) {
+  // Gate behind admin secret — set ADMIN_SECRET in Netlify env vars to use
+  const authHeader = event.headers.authorization || event.headers.Authorization || '';
+  const token = authHeader.replace('Bearer ', '');
+  if (!process.env.ADMIN_SECRET || token !== process.env.ADMIN_SECRET) {
+    return {
+      statusCode: 403,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Forbidden." }),
+    };
+  }
   // Step 1: Check that DATABASE_URL exists
   if (!process.env.DATABASE_URL) {
     return {

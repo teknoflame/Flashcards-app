@@ -172,7 +172,7 @@ async function authenticateRequest(event) {
         return {
             error: true,
             statusCode: 401,
-            body: { error: "Invalid or expired token.", detail: err.message },
+            body: { error: "Invalid or expired token." },
         };
     }
 }
