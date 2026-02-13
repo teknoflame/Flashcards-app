@@ -3368,8 +3368,8 @@ SparkDeckApp.prototype._sanitizeCards = function(cards) {
     return cards
         .filter(c => c && c.front && c.back)
         .map(c => ({
-            front: this._stripHtml(String(c.front)).slice(0, 5000),
-            back: this._stripHtml(String(c.back)).slice(0, 5000),
+            front: this._stripHtml(String(c.front)).slice(0, 50000),
+            back: this._stripHtml(String(c.back)).slice(0, 50000),
             mediaUrl: (typeof c.mediaUrl === 'string' && /^https?:\/\//i.test(c.mediaUrl))
                 ? c.mediaUrl.slice(0, 2000) : undefined
         }));
