@@ -998,6 +998,7 @@ class SparkDeckApp {
         }
 
         // Re-render everything with the new data
+        this.populateFolderOptions(this.deckFolder);
         this.renderDecks();
         this.renderStats();
     }
